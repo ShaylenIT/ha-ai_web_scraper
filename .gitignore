@@ -13,6 +13,18 @@ coverage.xml
 .ruff_cache
 
 
+# Local speckit files
+.github/prompts/
+.github/agents/
+.github/copilot-instructions.md
+.specify/
+
+# Local spec artifacts
+brs/
+specs/
+
+
+
 # Home Assistant configuration
 config/*
 !config/configuration.yaml
