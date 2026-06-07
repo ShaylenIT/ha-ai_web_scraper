@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-    from .coordinator import BlueprintDataUpdateCoordinator
+    from .coordinator import AIWebScraperDataUpdateCoordinator
     from .data import IntegrationBlueprintConfigEntry
 
 ENTITY_DESCRIPTIONS = (
@@ -44,12 +44,11 @@ class IntegrationBlueprintSwitch(IntegrationBlueprintEntity, SwitchEntity):
 
     def __init__(
         self,
-        coordinator: BlueprintDataUpdateCoordinator,
+        coordinator: AIWebScraperDataUpdateCoordinator,
         entity_description: SwitchEntityDescription,
     ) -> None:
         """Initialize the switch class."""
-        super().__init__(coordinator)
-        self.entity_description = entity_description
+        super().__init__(coordinator, entity_description)
 
     @property
     def is_on(self) -> bool:

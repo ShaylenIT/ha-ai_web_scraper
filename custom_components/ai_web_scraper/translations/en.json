@@ -1,4 +1,5 @@
 {
+    "title": "AI Web Scraper",
     "config": {
         "step": {
             "user": {
@@ -12,10 +13,28 @@
         "error": {
             "auth": "Username/Password is wrong.",
             "connection": "Unable to connect to the server.",
-            "unknown": "Unknown error occurred."
+            "unknown": "Unknown error occurred.",
+            "no_providers": "At least one AI Provider profile is required before creating a Scraper Entry."
         },
         "abort": {
             "already_configured": "This entry is already configured."
+        }
+    },
+    "entity": {
+        "sensor": {
+            "ai_web_scraper_data": {
+                "name": "Scraper Data"
+            }
+        },
+        "binary_sensor": {
+            "ai_web_scraper_status": {
+                "name": "Scraper Status"
+            }
+        },
+        "button": {
+            "ai_web_scraper_refresh": {
+                "name": "Refresh Scrape"
+            }
         }
     }
 }

@@ -40,6 +40,35 @@ from .data import (
     get_scraper_entries,
 )
 
+
+def _build_entry_client(
+    hass: HomeAssistant,
+    entry: IntegrationBlueprintConfigEntry,
+) -> IntegrationBlueprintApiClient:
+    provider_entry = get_provider_entry(hass, entry.data.get(CONF_PROVIDER_ID, ""))
+    provider_name = ""
+    api_key = ""
+    model_name = ""
+    browserless_url = ""
+
+    if provider_entry is not None:
+        provider_name = provider_entry.data.get(CONF_PROVIDER_NAME, provider_entry.title)
+        api_key = provider_entry.data.get(CONF_API_KEY, "")
+        model_name = provider_entry.data.get(CONF_MODEL_NAME, "")
+        browserless_url = provider_entry.data.get(CONF_BROWSERLESS_URL, "")
+
+    return IntegrationBlueprintApiClient(
+        provider_name=provider_name,
+        api_key=api_key,
+        model_name=model_name,
+        browserless_url=browserless_url,
+        scraper_name=entry.data.get(CONF_SCRAPER_NAME, entry.title),
+        url=entry.data.get(CONF_URL, ""),
+        prompt=entry.data.get(CONF_PROMPT, ""),
+        extraction_mode=entry.data.get(CONF_EXTRACTION_MODE, "dom"),
+        session=async_get_clientsession(hass),
+    )
+
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
 
@@ -76,29 +105,8 @@ async def async_setup_entry(
     )
     coordinator.config_entry = entry
 
-    provider_entry = get_provider_entry(hass, entry.data.get(CONF_PROVIDER_ID, ""))
-    provider_name = ""
-    api_key = ""
-    model_name = ""
-    browserless_url = ""
-    if provider_entry is not None:
-        provider_name = provider_entry.data.get(CONF_PROVIDER_NAME, provider_entry.title)
-        api_key = provider_entry.data.get(CONF_API_KEY, "")
-        model_name = provider_entry.data.get(CONF_MODEL_NAME, "")
-        browserless_url = provider_entry.data.get(CONF_BROWSERLESS_URL, "")
-
     entry.runtime_data = IntegrationBlueprintData(
-        client=IntegrationBlueprintApiClient(
-            provider_name=provider_name,
-            api_key=api_key,
-            model_name=model_name,
-            browserless_url=browserless_url,
-            scraper_name=entry.data.get(CONF_SCRAPER_NAME, entry.title),
-            url=entry.data.get(CONF_URL, ""),
-            prompt=entry.data.get(CONF_PROMPT, ""),
-            extraction_mode=entry.data.get(CONF_EXTRACTION_MODE, "dom"),
-            session=async_get_clientsession(hass),
-        ),
+        client=_build_entry_client(hass, entry),
         integration=async_get_loaded_integration(hass, entry.domain),
         coordinator=coordinator,
     )

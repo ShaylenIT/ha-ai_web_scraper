@@ -62,7 +62,11 @@ class IntegrationBlueprintApiClient:
         self._missing_provider = not bool(self._provider_name and self._api_key)
 
     async def async_get_data(self) -> dict[str, Any]:
-        """Get scraped data from the placeholder API."""
+        """Get scraped data from the placeholder API.
+
+        This integration processes scraped content entirely in memory. No page
+        HTML, screenshot, or temporary artifacts are persisted to disk.
+        """
         if self._missing_provider:
             raise IntegrationBlueprintApiClientError(
                 "Missing provider configuration. Please verify the selected Provider profile."

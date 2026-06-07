@@ -52,9 +52,7 @@ class IntegrationBlueprintBinarySensor(IntegrationBlueprintEntity, BinarySensorE
         entity_description: BinarySensorEntityDescription,
     ) -> None:
         """Initialize the binary_sensor class."""
-        super().__init__(coordinator)
-        self.entity_description = entity_description
-        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{entity_description.key}"
+        super().__init__(coordinator, entity_description)
 
     @property
     def is_on(self) -> bool:

@@ -36,6 +36,28 @@ File | Purpose | Documentation
 1. Rename all instances of the `AI Web Scraper` to `<Your Integration Name>` (e.g. `Awesome Integration`).
 1. Run the `scripts/develop` to start HA and test out your new integration.
 
+## AI Web Scraper Setup
+
+After installing the integration and starting Home Assistant, configure the AI Web Scraper from the UI:
+
+1. Go to **Settings > Devices & Services > Add Integration** and add **AI Web Scraper**.
+1. Choose **Add AI Provider** to create a provider profile with:
+   - Provider name
+   - API key
+   - Model name
+   - Optional browserless URL
+1. After the provider exists, choose **Add Scraper Entry** and configure:
+   - Scraper name
+   - URL to scrape
+   - Prompt text
+   - Provider selection
+   - Extraction mode (`DOM extraction` or `Vision extraction`)
+   - Interval seconds (`0` means manual-only refresh)
+1. Once created, the integration exposes:
+   - a data sensor for parsed scraper output
+   - a refresh button to perform an immediate scrape
+   - a status binary sensor for failure state
+
 ## Next steps
 
 These are some next steps you may want to look into:

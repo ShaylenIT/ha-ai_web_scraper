@@ -76,6 +76,37 @@ async def test_add_scraper_requires_provider(hass):
     assert "entry_type" in result["data_schema"]
 
 
+async def test_provider_list_populates_in_scraper_form(hass):
+    provider_entry = ConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Provider",
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_PROVIDER,
+            CONF_PROVIDER_NAME: "Test Provider",
+            CONF_API_KEY: "test-key",
+            CONF_MODEL_NAME: "gpt-4",
+        },
+        source=config_entries.SOURCE_USER,
+        options={},
+        entry_id="provider-entry-id",
+    )
+    provider_entry.add_to_hass(hass)
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": config_entries.SOURCE_USER},
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {CONF_ENTRY_TYPE: ENTRY_TYPE_SCRAPER},
+    )
+
+    assert result["type"] == RESULT_TYPE_FORM
+    assert result["step_id"] == "scraper"
+    assert CONF_PROVIDER_ID in result["data_schema"].schema
+
+
 async def test_add_scraper_with_provider(hass):
     provider_entry = ConfigEntry(
         version=1,

@@ -11,6 +11,7 @@ from .api import (
     IntegrationBlueprintApiClientAuthenticationError,
     IntegrationBlueprintApiClientError,
 )
+from .const import CONF_EXTRACTION_MODE, CONF_PROMPT, CONF_PROVIDER_NAME, CONF_URL
 
 if TYPE_CHECKING:
     from .data import IntegrationBlueprintConfigEntry
@@ -32,10 +33,10 @@ class AIWebScraperDataUpdateCoordinator(DataUpdateCoordinator):
             return {
                 "state": None,
                 "attributes": {
-                    "url": self.config_entry.data.get("url", ""),
-                    "prompt": self.config_entry.data.get("prompt", ""),
-                    "provider_name": self.config_entry.data.get("provider_name", ""),
-                    "extraction_mode": self.config_entry.data.get("extraction_mode", ""),
+                    "url": self.config_entry.data.get(CONF_URL, ""),
+                    "prompt": self.config_entry.data.get(CONF_PROMPT, ""),
+                    "provider_name": self.config_entry.data.get(CONF_PROVIDER_NAME, ""),
+                    "extraction_mode": self.config_entry.data.get(CONF_EXTRACTION_MODE, ""),
                     "scrape_duration_seconds": 0,
                     "last_successful_scrape": None,
                 },

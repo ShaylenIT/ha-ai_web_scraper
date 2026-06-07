@@ -48,9 +48,7 @@ class IntegrationBlueprintButton(IntegrationBlueprintEntity, ButtonEntity):
         entity_description: ButtonEntityDescription,
     ) -> None:
         """Initialize the button entity."""
-        super().__init__(coordinator)
-        self.entity_description = entity_description
-        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{entity_description.key}"
+        super().__init__(coordinator, entity_description)
 
     async def async_press(self) -> None:
         """Handle the button press by refreshing scraper data."""
