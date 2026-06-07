@@ -7,11 +7,6 @@
   "config_flow": true,
   "documentation": "https://github.com/ludeeus/ai_web_scraper",
   "iot_class": "cloud_polling",
-  "platforms": [
-    "sensor",
-    "binary_sensor",
-    "button"
-  ],
   "issue_tracker": "https://github.com/ludeeus/ai_web_scraper/issues",
   "version": "0.1.0"
 }

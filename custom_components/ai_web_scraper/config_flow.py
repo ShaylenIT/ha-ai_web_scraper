@@ -47,8 +47,8 @@ class AIWebScraperConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return await self.async_step_scraper()
 
         integration = async_get_loaded_integration(self.hass, DOMAIN)
-        assert integration.documentation is not None, (
-            "Integration documentation URL is not set in manifest.json"
+        documentation_url = (
+            integration.documentation if integration is not None else ""
         )
 
         schema = vol.Schema(
