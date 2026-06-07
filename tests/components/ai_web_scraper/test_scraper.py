@@ -101,6 +101,55 @@ async def test_coordinator_fetches_scrape_data(hass: HomeAssistant) -> None:
     assert coordinator.data["last_attempt_status"] == "success"
 
 
+async def test_coordinator_logs_scrape_failure(
+    hass: HomeAssistant, caplog: Any
+) -> None:
+    """Test that coordinator logs failures when scraper data fetch fails."""
+    entry = ConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Scraper",
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_SCRAPER,
+            CONF_PROVIDER_ID: "provider-id",
+            CONF_SCRAPER_NAME: "Test Scraper",
+            CONF_URL: "https://example.com",
+            CONF_PROMPT: "Extract text",
+            CONF_EXTRACTION_MODE: "dom",
+            CONF_INTERVAL_SECONDS: 0,
+        },
+        source="user",
+        options={},
+        entry_id="scraper-entry-id",
+    )
+    entry.add_to_hass(hass)
+
+    coordinator = AIWebScraperDataUpdateCoordinator(
+        hass=hass,
+        logger=LOGGER,
+        name="Test Scraper",
+        update_interval=None,
+    )
+    coordinator.config_entry = entry
+
+    client = AsyncMock()
+    client.async_get_data.side_effect = IntegrationBlueprintApiClientError(
+        "Missing provider configuration"
+    )
+
+    entry.runtime_data = IntegrationBlueprintData(
+        client=client,
+        integration=None,
+        coordinator=coordinator,
+    )
+
+    caplog.set_level("ERROR")
+    await coordinator.async_config_entry_first_refresh()
+
+    assert "Scraper data fetch failed for Test Scraper" in caplog.text
+    assert coordinator.data["last_attempt_status"] == "failure"
+
+
 class DummyCoordinator:
     """Minimal coordinator stub used by button and sensor tests."""
 
@@ -267,7 +316,10 @@ async def test_client_fetches_page_text_when_no_browserless_url() -> None:
     assert data["state"] == "Hello from example.com"
     session.get.assert_awaited_once_with(
         "https://example.com",
-        headers={"Accept": "text/html"},
+        headers={
+            "Accept": "text/html",
+            "User-Agent": "Mozilla/5.0 (HomeAssistant) ai_web_scraper",
+        },
     )
 
 

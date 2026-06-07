@@ -53,7 +53,13 @@ class IntegrationBlueprintSensor(IntegrationBlueprintEntity, SensorEntity):
     @property
     def native_value(self) -> str | None:
         """Return the native value of the sensor."""
-        return self.coordinator.data.get("state")
+        state = self.coordinator.data.get("state")
+        if (
+            state is None
+            and self.coordinator.data.get("last_attempt_status") == "failure"
+        ):
+            return self.coordinator.data.get("error_message", "unknown")
+        return state
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:

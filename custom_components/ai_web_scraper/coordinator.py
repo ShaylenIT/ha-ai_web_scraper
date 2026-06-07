@@ -30,6 +30,10 @@ class AIWebScraperDataUpdateCoordinator(DataUpdateCoordinator):
         except IntegrationBlueprintApiClientAuthenticationError as exception:
             raise ConfigEntryAuthFailed(exception) from exception
         except IntegrationBlueprintApiClientError as exception:
+            self.logger.exception(
+                "Scraper data fetch failed for %s",
+                self.config_entry.title,
+            )
             return {
                 "state": None,
                 "attributes": {
