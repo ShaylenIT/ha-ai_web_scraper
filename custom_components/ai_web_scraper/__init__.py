@@ -27,7 +27,6 @@ from .const import (
     CONF_PROVIDER_NAME,
     CONF_SCRAPER_NAME,
     CONF_URL,
-    DOMAIN,
     ENTRY_TYPE_PROVIDER,
     ENTRY_TYPE_SCRAPER,
     LOGGER,
@@ -52,7 +51,9 @@ def _build_entry_client(
     browserless_url = ""
 
     if provider_entry is not None:
-        provider_name = provider_entry.data.get(CONF_PROVIDER_NAME, provider_entry.title)
+        provider_name = provider_entry.data.get(
+            CONF_PROVIDER_NAME, provider_entry.title
+        )
         api_key = provider_entry.data.get(CONF_API_KEY, "")
         model_name = provider_entry.data.get(CONF_MODEL_NAME, "")
         browserless_url = provider_entry.data.get(CONF_BROWSERLESS_URL, "")
@@ -68,6 +69,7 @@ def _build_entry_client(
         extraction_mode=entry.data.get(CONF_EXTRACTION_MODE, "dom"),
         session=async_get_clientsession(hass),
     )
+
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
@@ -86,7 +88,9 @@ async def async_setup_entry(
 ) -> bool:
     """Set up this integration using UI."""
     if entry.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_PROVIDER:
-        entry.async_on_unload(entry.add_update_listener(async_reload_provider_dependents))
+        entry.async_on_unload(
+            entry.add_update_listener(async_reload_provider_dependents)
+        )
         return True
 
     if entry.data.get(CONF_ENTRY_TYPE) != ENTRY_TYPE_SCRAPER:

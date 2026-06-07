@@ -14,6 +14,7 @@ from .const import (
     CONF_ENTRY_TYPE,
     CONF_EXTRACTION_MODE,
     CONF_INTERVAL_SECONDS,
+    CONF_MODEL_NAME,
     CONF_PROMPT,
     CONF_PROVIDER_ID,
     CONF_PROVIDER_NAME,
@@ -47,9 +48,7 @@ class AIWebScraperConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return await self.async_step_scraper()
 
         integration = async_get_loaded_integration(self.hass, DOMAIN)
-        documentation_url = (
-            integration.documentation if integration is not None else ""
-        )
+        documentation_url = integration.documentation if integration is not None else ""
 
         schema = vol.Schema(
             {
@@ -68,7 +67,7 @@ class AIWebScraperConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="user",
             description_placeholders={
-                "documentation_url": integration.documentation,
+                "documentation_url": documentation_url,
             },
             data_schema=schema,
             errors=errors,
@@ -149,10 +148,12 @@ class AIWebScraperConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         }
 
         if provider_options:
-            schema_dict[vol.Required(
-                CONF_PROVIDER_ID,
-                default=(user_input or {}).get(CONF_PROVIDER_ID, vol.UNDEFINED),
-            )] = vol.In(provider_options)
+            schema_dict[
+                vol.Required(
+                    CONF_PROVIDER_ID,
+                    default=(user_input or {}).get(CONF_PROVIDER_ID, vol.UNDEFINED),
+                )
+            ] = vol.In(provider_options)
 
         return vol.Schema(schema_dict)
 
@@ -215,11 +216,11 @@ class AIWebScraperConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if not user_input.get(CONF_PROMPT):
                 errors[CONF_PROMPT] = "required"
             if not errors:
-                await self.async_set_unique_id(
-                    slugify(
-                        f"{user_input[CONF_SCRAPER_NAME]}-{user_input.get(CONF_PROVIDER_ID, '')}"
-                    )
+                scraper_id = (
+                    f"{user_input[CONF_SCRAPER_NAME]}-"
+                    f"{user_input.get(CONF_PROVIDER_ID, '')}"
                 )
+                await self.async_set_unique_id(slugify(scraper_id))
                 self._abort_if_unique_id_configured()
                 return self.async_create_entry(
                     title=user_input[CONF_SCRAPER_NAME],
@@ -244,6 +245,7 @@ class AIWebScraperConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def async_get_options_flow(
         config_entry: config_entries.ConfigEntry,
     ) -> config_entries.OptionsFlow:
+        """Return an options flow for the given config entry."""
         return AIWebScraperOptionsFlowHandler(config_entry)
 
 
@@ -251,12 +253,14 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
     """Options flow for ai_web_scraper."""
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+        """Initialize the options flow."""
         self.config_entry = config_entry
 
     async def async_step_init(
         self,
         user_input: dict | None = None,
     ) -> config_entries.FlowResult:
+        """Handle the initial step of the options flow."""
         entry_type = self.config_entry.data.get(CONF_ENTRY_TYPE)
         if entry_type == ENTRY_TYPE_PROVIDER:
             return await self.async_step_provider(user_input)
@@ -266,6 +270,7 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
         self,
         user_input: dict | None = None,
     ) -> config_entries.FlowResult:
+        """Handle provider reconfiguration."""
         errors: dict[str, str] = {}
 
         if user_input is not None:
@@ -293,7 +298,9 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
             {
                 vol.Required(
                     CONF_PROVIDER_NAME,
-                    default=self.config_entry.data.get(CONF_PROVIDER_NAME, vol.UNDEFINED),
+                    default=self.config_entry.data.get(
+                        CONF_PROVIDER_NAME, vol.UNDEFINED
+                    ),
                 ): selector.TextSelector(
                     selector.TextSelectorConfig(type=selector.TextSelectorType.TEXT)
                 ),
@@ -311,7 +318,9 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
                 ),
                 vol.Optional(
                     CONF_BROWSERLESS_URL,
-                    default=self.config_entry.data.get(CONF_BROWSERLESS_URL, vol.UNDEFINED),
+                    default=self.config_entry.data.get(
+                        CONF_BROWSERLESS_URL, vol.UNDEFINED
+                    ),
                 ): selector.TextSelector(
                     selector.TextSelectorConfig(type=selector.TextSelectorType.URL)
                 ),
@@ -328,6 +337,7 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
         self,
         user_input: dict | None = None,
     ) -> config_entries.FlowResult:
+        """Handle scraper reconfiguration."""
         errors: dict[str, str] = {}
         provider_options = {
             entry.entry_id: entry.title
@@ -393,10 +403,12 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
         }
 
         if provider_options:
-            schema_dict[vol.Required(
-                CONF_PROVIDER_ID,
-                default=self.config_entry.data.get(CONF_PROVIDER_ID, vol.UNDEFINED),
-            )] = vol.In(provider_options)
+            schema_dict[
+                vol.Required(
+                    CONF_PROVIDER_ID,
+                    default=self.config_entry.data.get(CONF_PROVIDER_ID, vol.UNDEFINED),
+                )
+            ] = vol.In(provider_options)
 
         schema = vol.Schema(schema_dict)
 

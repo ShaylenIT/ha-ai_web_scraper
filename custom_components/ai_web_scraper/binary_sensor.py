@@ -64,5 +64,7 @@ class IntegrationBlueprintBinarySensor(IntegrationBlueprintEntity, BinarySensorE
         """Return the state attributes of the binary sensor."""
         return {
             "error_message": self.coordinator.data.get("error_message", ""),
-            "last_attempt_status": self.coordinator.data.get("last_attempt_status", "unknown"),
+            "last_attempt_status": self.coordinator.data.get(
+                "last_attempt_status", "unknown"
+            ),
         }

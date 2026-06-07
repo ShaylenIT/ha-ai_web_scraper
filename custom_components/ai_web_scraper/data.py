@@ -6,16 +6,15 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
 
 if TYPE_CHECKING:
+    from homeassistant.core import HomeAssistant
     from homeassistant.loader import Integration
 
     from .api import IntegrationBlueprintApiClient
     from .coordinator import AIWebScraperDataUpdateCoordinator
 
 from .const import CONF_ENTRY_TYPE, ENTRY_TYPE_PROVIDER, ENTRY_TYPE_SCRAPER
-
 
 IntegrationBlueprintConfigEntry = ConfigEntry
 
@@ -53,11 +52,7 @@ def get_scraper_entries(hass: HomeAssistant) -> list[ConfigEntry]:
 def get_scraper_entry(hass: HomeAssistant, entry_id: str) -> ConfigEntry | None:
     """Return a scraper config entry by ID."""
     return next(
-        (
-            entry
-            for entry in get_scraper_entries(hass)
-            if entry.entry_id == entry_id
-        ),
+        (entry for entry in get_scraper_entries(hass) if entry.entry_id == entry_id),
         None,
     )
 

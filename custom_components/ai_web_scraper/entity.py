@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from homeassistant.helpers.device_registry import DeviceInfo
-from homeassistant.helpers.entity import EntityDescription
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import ATTRIBUTION
 from .coordinator import AIWebScraperDataUpdateCoordinator
+
+if TYPE_CHECKING:
+    from homeassistant.helpers.entity import EntityDescription
 
 
 class IntegrationBlueprintEntity(CoordinatorEntity[AIWebScraperDataUpdateCoordinator]):
@@ -25,7 +29,9 @@ class IntegrationBlueprintEntity(CoordinatorEntity[AIWebScraperDataUpdateCoordin
         super().__init__(coordinator)
         self.entity_description = entity_description
         if entity_description is not None:
-            self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{entity_description.key}"
+            self._attr_unique_id = (
+                f"{coordinator.config_entry.entry_id}_{entity_description.key}"
+            )
 
         self._attr_device_info = DeviceInfo(
             identifiers={

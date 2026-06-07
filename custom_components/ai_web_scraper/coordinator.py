@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.exceptions import ConfigEntryAuthFailed
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .api import (
     IntegrationBlueprintApiClientAuthenticationError,
@@ -36,7 +36,9 @@ class AIWebScraperDataUpdateCoordinator(DataUpdateCoordinator):
                     "url": self.config_entry.data.get(CONF_URL, ""),
                     "prompt": self.config_entry.data.get(CONF_PROMPT, ""),
                     "provider_name": self.config_entry.data.get(CONF_PROVIDER_NAME, ""),
-                    "extraction_mode": self.config_entry.data.get(CONF_EXTRACTION_MODE, ""),
+                    "extraction_mode": self.config_entry.data.get(
+                        CONF_EXTRACTION_MODE, ""
+                    ),
                     "scrape_duration_seconds": 0,
                     "last_successful_scrape": None,
                 },
