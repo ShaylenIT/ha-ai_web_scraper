@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
@@ -16,14 +16,14 @@ if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-    from .coordinator import BlueprintDataUpdateCoordinator
+    from .coordinator import AIWebScraperDataUpdateCoordinator
     from .data import IntegrationBlueprintConfigEntry
 
 ENTITY_DESCRIPTIONS = (
     BinarySensorEntityDescription(
-        key="ai_web_scraper",
-        name="AI Web Scraper Binary Sensor",
-        device_class=BinarySensorDeviceClass.CONNECTIVITY,
+        key="ai_web_scraper_status",
+        name="Scraper Status",
+        device_class=BinarySensorDeviceClass.PROBLEM,
     ),
 )
 
@@ -48,14 +48,23 @@ class IntegrationBlueprintBinarySensor(IntegrationBlueprintEntity, BinarySensorE
 
     def __init__(
         self,
-        coordinator: BlueprintDataUpdateCoordinator,
+        coordinator: AIWebScraperDataUpdateCoordinator,
         entity_description: BinarySensorEntityDescription,
     ) -> None:
         """Initialize the binary_sensor class."""
         super().__init__(coordinator)
         self.entity_description = entity_description
+        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{entity_description.key}"
 
     @property
     def is_on(self) -> bool:
-        """Return true if the binary_sensor is on."""
-        return self.coordinator.data.get("title", "") == "foo"
+        """Return true if the binary sensor is on."""
+        return self.coordinator.data.get("last_attempt_status") == "failure"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return the state attributes of the binary sensor."""
+        return {
+            "error_message": self.coordinator.data.get("error_message", ""),
+            "last_attempt_status": self.coordinator.data.get("last_attempt_status", "unknown"),
+        }

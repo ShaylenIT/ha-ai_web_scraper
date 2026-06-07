@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 
 # https://developers.home-assistant.io/docs/integration_fetching_data#coordinated-single-api-poll-for-data-for-all-entities
-class BlueprintDataUpdateCoordinator(DataUpdateCoordinator):
+class AIWebScraperDataUpdateCoordinator(DataUpdateCoordinator):
     """Class to manage fetching data from the API."""
 
     config_entry: IntegrationBlueprintConfigEntry
@@ -29,4 +29,16 @@ class BlueprintDataUpdateCoordinator(DataUpdateCoordinator):
         except IntegrationBlueprintApiClientAuthenticationError as exception:
             raise ConfigEntryAuthFailed(exception) from exception
         except IntegrationBlueprintApiClientError as exception:
-            raise UpdateFailed(exception) from exception
+            return {
+                "state": None,
+                "attributes": {
+                    "url": self.config_entry.data.get("url", ""),
+                    "prompt": self.config_entry.data.get("prompt", ""),
+                    "provider_name": self.config_entry.data.get("provider_name", ""),
+                    "extraction_mode": self.config_entry.data.get("extraction_mode", ""),
+                    "scrape_duration_seconds": 0,
+                    "last_successful_scrape": None,
+                },
+                "error_message": str(exception),
+                "last_attempt_status": "failure",
+            }

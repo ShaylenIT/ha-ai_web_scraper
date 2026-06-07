@@ -1,8 +1,9 @@
-"""Sample API Client."""
+"""AI Web Scraper API client."""
 
 from __future__ import annotations
 
 import socket
+from datetime import datetime
 from typing import Any
 
 import aiohttp
@@ -29,41 +30,66 @@ def _verify_response_or_raise(response: aiohttp.ClientResponse) -> None:
     """Verify that the response is valid."""
     if response.status in (401, 403):
         msg = "Invalid credentials"
-        raise IntegrationBlueprintApiClientAuthenticationError(
-            msg,
-        )
+        raise IntegrationBlueprintApiClientAuthenticationError(msg)
     response.raise_for_status()
 
 
 class IntegrationBlueprintApiClient:
-    """Sample API Client."""
+    """AI Web Scraper API Client."""
 
     def __init__(
         self,
-        username: str,
-        password: str,
+        provider_name: str,
+        api_key: str,
+        model_name: str,
+        browserless_url: str,
+        scraper_name: str,
+        url: str,
+        prompt: str,
+        extraction_mode: str,
         session: aiohttp.ClientSession,
     ) -> None:
-        """Sample API Client."""
-        self._username = username
-        self._password = password
+        """Initialize the scraper client."""
+        self._provider_name = provider_name
+        self._api_key = api_key
+        self._model_name = model_name
+        self._browserless_url = browserless_url
+        self._scraper_name = scraper_name
+        self._url = url
+        self._prompt = prompt
+        self._extraction_mode = extraction_mode
         self._session = session
+        self._missing_provider = not bool(self._provider_name and self._api_key)
 
-    async def async_get_data(self) -> Any:
-        """Get data from the API."""
-        return await self._api_wrapper(
+    async def async_get_data(self) -> dict[str, Any]:
+        """Get scraped data from the placeholder API."""
+        if self._missing_provider:
+            raise IntegrationBlueprintApiClientError(
+                "Missing provider configuration. Please verify the selected Provider profile."
+            )
+
+        start = datetime.utcnow()
+        raw = await self._api_wrapper(
             method="get",
             url="https://jsonplaceholder.typicode.com/posts/1",
         )
+        duration = (datetime.utcnow() - start).total_seconds()
 
-    async def async_set_title(self, value: str) -> Any:
-        """Get data from the API."""
-        return await self._api_wrapper(
-            method="patch",
-            url="https://jsonplaceholder.typicode.com/posts/1",
-            data={"title": value},
-            headers={"Content-type": "application/json; charset=UTF-8"},
-        )
+        state = raw.get("body", "")
+        attributes = {
+            "url": self._url,
+            "prompt": self._prompt,
+            "provider_name": self._provider_name,
+            "extraction_mode": self._extraction_mode,
+            "scrape_duration_seconds": duration,
+            "last_successful_scrape": datetime.utcnow().isoformat(),
+        }
+        return {
+            "state": state,
+            "attributes": attributes,
+            "error_message": "",
+            "last_attempt_status": "success",
+        }
 
     async def _api_wrapper(
         self,
@@ -72,7 +98,7 @@ class IntegrationBlueprintApiClient:
         data: dict | None = None,
         headers: dict | None = None,
     ) -> Any:
-        """Get information from the API."""
+        """Make a request to the remote API."""
         try:
             async with async_timeout.timeout(10):
                 response = await self._session.request(
@@ -86,16 +112,10 @@ class IntegrationBlueprintApiClient:
 
         except TimeoutError as exception:
             msg = f"Timeout error fetching information - {exception}"
-            raise IntegrationBlueprintApiClientCommunicationError(
-                msg,
-            ) from exception
+            raise IntegrationBlueprintApiClientCommunicationError(msg) from exception
         except (aiohttp.ClientError, socket.gaierror) as exception:
             msg = f"Error fetching information - {exception}"
-            raise IntegrationBlueprintApiClientCommunicationError(
-                msg,
-            ) from exception
+            raise IntegrationBlueprintApiClientCommunicationError(msg) from exception
         except Exception as exception:  # pylint: disable=broad-except
             msg = f"Something really wrong happened! - {exception}"
-            raise IntegrationBlueprintApiClientError(
-                msg,
-            ) from exception
+            raise IntegrationBlueprintApiClientError(msg) from exception

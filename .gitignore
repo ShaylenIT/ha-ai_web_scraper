@@ -11,7 +11,19 @@ __pycache__
 .vscode
 coverage.xml
 .ruff_cache
+*.log
+.env
+.env.*
 
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.py.class
+.venv/
+venv/
+.env/
 
 # Local speckit files
 .github/prompts/

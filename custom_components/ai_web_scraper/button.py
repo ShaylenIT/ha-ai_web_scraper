@@ -1,10 +1,10 @@
-"""Sensor platform for ai_web_scraper."""
+"""Button platform for ai_web_scraper."""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
-from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
+from homeassistant.components.button import ButtonEntity, ButtonEntityDescription
 
 from .entity import IntegrationBlueprintEntity
 
@@ -16,10 +16,10 @@ if TYPE_CHECKING:
     from .data import IntegrationBlueprintConfigEntry
 
 ENTITY_DESCRIPTIONS = (
-    SensorEntityDescription(
-        key="ai_web_scraper_data",
-        name="Scraper Data",
-        icon="mdi:text-box",
+    ButtonEntityDescription(
+        key="ai_web_scraper_refresh",
+        name="Refresh Scraper",
+        icon="mdi:refresh",
     ),
 )
 
@@ -29,9 +29,9 @@ async def async_setup_entry(
     entry: IntegrationBlueprintConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up the sensor platform."""
+    """Set up the button platform."""
     async_add_entities(
-        IntegrationBlueprintSensor(
+        IntegrationBlueprintButton(
             coordinator=entry.runtime_data.coordinator,
             entity_description=entity_description,
         )
@@ -39,25 +39,19 @@ async def async_setup_entry(
     )
 
 
-class IntegrationBlueprintSensor(IntegrationBlueprintEntity, SensorEntity):
-    """ai_web_scraper Sensor class."""
+class IntegrationBlueprintButton(IntegrationBlueprintEntity, ButtonEntity):
+    """ai_web_scraper button entity."""
 
     def __init__(
         self,
         coordinator: AIWebScraperDataUpdateCoordinator,
-        entity_description: SensorEntityDescription,
+        entity_description: ButtonEntityDescription,
     ) -> None:
-        """Initialize the sensor class."""
+        """Initialize the button entity."""
         super().__init__(coordinator)
         self.entity_description = entity_description
         self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{entity_description.key}"
 
-    @property
-    def native_value(self) -> str | None:
-        """Return the native value of the sensor."""
-        return self.coordinator.data.get("state")
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any] | None:
-        """Return the state attributes of the sensor."""
-        return self.coordinator.data.get("attributes")
+    async def async_press(self) -> None:
+        """Handle the button press by refreshing scraper data."""
+        await self.coordinator.async_request_refresh()
