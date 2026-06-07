@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import socket
 from datetime import UTC, datetime
 from typing import Any
@@ -26,12 +27,15 @@ class IntegrationBlueprintApiClientAuthenticationError(
     """Exception to indicate an authentication error."""
 
 
-def _verify_response_or_raise(response: aiohttp.ClientResponse) -> None:
+async def _verify_response_or_raise(response: aiohttp.ClientResponse) -> None:
     """Verify that the response is valid."""
     if response.status in (401, 403):
         msg = "Invalid credentials"
         raise IntegrationBlueprintApiClientAuthenticationError(msg)
-    response.raise_for_status()
+
+    result = response.raise_for_status()
+    if inspect.isawaitable(result):
+        await result
 
 
 class IntegrationBlueprintApiClient:
@@ -63,7 +67,7 @@ class IntegrationBlueprintApiClient:
 
     async def async_get_data(self) -> dict[str, Any]:
         """
-        Get scraped data from the placeholder API.
+        Get scraped data from the configured provider or the target URL.
 
         This integration processes scraped content entirely in memory. No page
         HTML, screenshot, or temporary artifacts are persisted to disk.
@@ -76,13 +80,22 @@ class IntegrationBlueprintApiClient:
             raise IntegrationBlueprintApiClientError(msg)
 
         start = datetime.now(tz=UTC)
-        raw = await self._api_wrapper(
-            method="get",
-            url="https://jsonplaceholder.typicode.com/posts/1",
-        )
+        if self._browserless_url:
+            raw = await self._api_wrapper(
+                method="post",
+                url=self._browserless_url,
+                data={
+                    "url": self._url,
+                    "prompt": self._prompt,
+                    "provider_name": self._provider_name,
+                    "extraction_mode": self._extraction_mode,
+                },
+            )
+            state = raw.get("text", raw.get("body", raw.get("result", "")))
+        else:
+            state = await self._fetch_page_text(self._url)
         duration = (datetime.now(tz=UTC) - start).total_seconds()
 
-        state = raw.get("body", "")
         attributes = {
             "url": self._url,
             "prompt": self._prompt,
@@ -97,6 +110,26 @@ class IntegrationBlueprintApiClient:
             "error_message": "",
             "last_attempt_status": "success",
         }
+
+    async def _fetch_page_text(self, url: str) -> str:
+        """Fetch a page and return its text content."""
+        try:
+            async with async_timeout.timeout(10):
+                response = await self._session.get(
+                    url,
+                    headers={"Accept": "text/html"},
+                )
+                await _verify_response_or_raise(response)
+                return await response.text()
+        except TimeoutError as exception:
+            msg = f"Timeout error fetching page content - {exception}"
+            raise IntegrationBlueprintApiClientCommunicationError(msg) from exception
+        except (aiohttp.ClientError, socket.gaierror) as exception:
+            msg = f"Error fetching page content - {exception}"
+            raise IntegrationBlueprintApiClientCommunicationError(msg) from exception
+        except Exception as exception:  # pylint: disable=broad-except
+            msg = f"Something really wrong happened! - {exception}"
+            raise IntegrationBlueprintApiClientError(msg) from exception
 
     async def _api_wrapper(
         self,
@@ -114,7 +147,7 @@ class IntegrationBlueprintApiClient:
                     headers=headers,
                     json=data,
                 )
-                _verify_response_or_raise(response)
+                await _verify_response_or_raise(response)
                 return await response.json()
 
         except TimeoutError as exception:

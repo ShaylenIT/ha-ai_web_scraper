@@ -220,6 +220,35 @@ async def test_build_entry_client_missing_provider_raises_error():
         raise AssertionError("Expected IntegrationBlueprintApiClientError")
 
 
+async def test_client_fetches_page_text_when_no_browserless_url():
+    response = AsyncMock()
+    response.status = 200
+    response.text = AsyncMock(return_value="Hello from example.com")
+
+    session = AsyncMock()
+    session.get.return_value.__aenter__.return_value = response
+
+    client = IntegrationBlueprintApiClient(
+        provider_name="provider",
+        api_key="key",
+        model_name="gpt-4",
+        browserless_url="",
+        scraper_name="Test Scraper",
+        url="https://example.com",
+        prompt="Extract text",
+        extraction_mode="dom",
+        session=session,
+    )
+
+    data = await client.async_get_data()
+
+    assert data["state"] == "Hello from example.com"
+    session.get.assert_awaited_once_with(
+        "https://example.com",
+        headers={"Accept": "text/html"},
+    )
+
+
 async def test_setup_entry_zero_interval_is_manual_only(hass, monkeypatch):
     provider_entry = ConfigEntry(
         version=1,
