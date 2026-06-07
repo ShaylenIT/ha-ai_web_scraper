@@ -91,7 +91,13 @@ class IntegrationBlueprintApiClient:
                     "extraction_mode": self._extraction_mode,
                 },
             )
-            state = raw.get("text", raw.get("body", raw.get("result", "")))
+            if isinstance(raw, str):
+                state = raw
+            else:
+                state = raw.get(
+                    "text",
+                    raw.get("body", raw.get("result", raw.get("data", ""))),
+                )
         else:
             state = await self._fetch_page_text(self._url)
         duration = (datetime.now(tz=UTC) - start).total_seconds()
@@ -117,7 +123,10 @@ class IntegrationBlueprintApiClient:
             async with async_timeout.timeout(10):
                 response = await self._session.get(
                     url,
-                    headers={"Accept": "text/html"},
+                    headers={
+                        "Accept": "text/html",
+                        "User-Agent": "Mozilla/5.0 (HomeAssistant) ai_web_scraper",
+                    },
                 )
                 await _verify_response_or_raise(response)
                 return await response.text()
@@ -148,7 +157,13 @@ class IntegrationBlueprintApiClient:
                     json=data,
                 )
                 await _verify_response_or_raise(response)
-                return await response.json()
+                content_type = response.headers.get("Content-Type", "")
+                if "application/json" in content_type:
+                    return await response.json()
+                try:
+                    return await response.json()
+                except (aiohttp.ContentTypeError, ValueError):
+                    return await response.text()
 
         except TimeoutError as exception:
             msg = f"Timeout error fetching information - {exception}"

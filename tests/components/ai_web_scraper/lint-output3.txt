@@ -1,0 +1,228 @@
+I001 [*] Import block is un-sorted or un-formatted
+  --> tests\components\ai_web_scraper\test_scraper.py:4:1
+   |
+ 2 |   """Tests for the ai_web_scraper scraper entity behavior."""
+ 3 |
+ 4 | / from __future__ import annotations
+ 5 | |
+ 6 | | from pathlib import Path
+ 7 | | from typing import TYPE_CHECKING, Any
+ 8 | | from unittest.mock import AsyncMock
+ 9 | |
+10 | | import pytest
+11 | | from homeassistant.config_entries import ConfigEntry
+12 | | from homeassistant.components.binary_sensor import BinarySensorEntityDescription
+13 | | from homeassistant.components.sensor import SensorEntityDescription
+14 | |
+15 | | from custom_components.ai_web_scraper import __init__ as integration_init
+16 | | from custom_components.ai_web_scraper.api import (
+17 | |     IntegrationBlueprintApiClient,
+18 | |     IntegrationBlueprintApiClientError,
+19 | | )
+20 | | from custom_components.ai_web_scraper.binary_sensor import IntegrationBlueprintBinarySensor
+21 | | from custom_components.ai_web_scraper.button import (
+22 | |     ENTITY_DESCRIPTIONS as BUTTON_ENTITY_DESCRIPTIONS,
+23 | |     IntegrationBlueprintButton,
+24 | | )
+25 | | from custom_components.ai_web_scraper.coordinator import (
+26 | |     AIWebScraperDataUpdateCoordinator,
+27 | | )
+28 | | from custom_components.ai_web_scraper.const import (
+29 | |     CONF_API_KEY,
+30 | |     CONF_ENTRY_TYPE,
+31 | |     CONF_EXTRACTION_MODE,
+32 | |     CONF_INTERVAL_SECONDS,
+33 | |     CONF_MODEL_NAME,
+34 | |     CONF_PROMPT,
+35 | |     CONF_PROVIDER_ID,
+36 | |     CONF_PROVIDER_NAME,
+37 | |     CONF_SCRAPER_NAME,
+38 | |     CONF_URL,
+39 | |     DOMAIN,
+40 | |     ENTRY_TYPE_SCRAPER,
+41 | |     LOGGER,
+42 | | )
+43 | | from custom_components.ai_web_scraper.data import IntegrationBlueprintData
+44 | | from custom_components.ai_web_scraper.sensor import IntegrationBlueprintSensor
+   | |______________________________________________________________________________^
+45 |
+46 |   if TYPE_CHECKING:
+   |
+help: Organize imports
+
+E501 Line too long (91 > 88)
+  --> tests\components\ai_web_scraper\test_scraper.py:20:89
+   |
+18 |     IntegrationBlueprintApiClientError,
+19 | )
+20 | from custom_components.ai_web_scraper.binary_sensor import IntegrationBlueprintBinarySensor
+   |                                                                                         ^^^
+21 | from custom_components.ai_web_scraper.button import (
+22 |     ENTITY_DESCRIPTIONS as BUTTON_ENTITY_DESCRIPTIONS,
+   |
+
+D107 Missing docstring in `__init__`
+   --> tests\components\ai_web_scraper\test_scraper.py:103:9
+    |
+101 |     """Minimal coordinator stub used by button and sensor tests."""
+102 |
+103 |     def __init__(self, entry: ConfigEntry, data: dict[str, Any]) -> None:
+    |         ^^^^^^^^
+104 |         self.config_entry = entry
+105 |         self.data = data
+    |
+
+ARG001 Unused function argument: `hass`
+   --> tests\components\ai_web_scraper\test_scraper.py:109:48
+    |
+109 | async def test_refresh_button_requests_refresh(hass: HomeAssistant) -> None:
+    |                                                ^^^^
+110 |     """Test that pressing the refresh button requests coordinator refresh."""
+111 |     entry = ConfigEntry(
+    |
+
+E501 Line too long (99 > 88)
+   --> tests\components\ai_web_scraper\test_scraper.py:232:89
+    |
+230 |     )
+231 |
+232 |     with pytest.raises(IntegrationBlueprintApiClientError, match="Missing provider configuration"):
+    |                                                                                         ^^^^^^^^^^^
+233 |         await client.async_get_data()
+    |
+
+PIE790 [*] Unnecessary `pass` statement
+   --> tests\components\ai_web_scraper\test_scraper.py:309:13
+    |
+307 |         def __init__(self, *args: Any, **kwargs: Any) -> None:
+308 |             """Initialize the dummy API client with ignored arguments."""
+309 |             pass
+    |             ^^^^
+310 |
+311 |         async def async_get_data(self) -> dict[str, Any]:
+    |
+help: Remove unnecessary `pass`
+
+E501 Line too long (105 > 88)
+   --> tests\components\ai_web_scraper\test_scraper.py:320:89
+    |
+319 |     monkeypatch.setattr(integration_init, "IntegrationBlueprintApiClient", DummyClient)
+320 |     monkeypatch.setattr(integration_init, "async_get_loaded_integration", lambda *_args, **_kwargs: None)
+    |                                                                                         ^^^^^^^^^^^^^^^^^
+321 |
+322 |     result = await integration_init.async_setup_entry(hass, scraper_entry)
+    |
+
+ANN204 Missing return type annotation for special method `__init__`
+   --> tests\components\ai_web_scraper\test_scraper.py:368:13
+    |
+367 |     class DummyClient:
+368 |         def __init__(self, *args, **kwargs):
+    |             ^^^^^^^^
+369 |             self.async_get_data = AsyncMock(
+370 |                 return_value={
+    |
+help: Add return type annotation: `None`
+
+ANN002 Missing type annotation for `*args`
+   --> tests\components\ai_web_scraper\test_scraper.py:368:28
+    |
+367 |     class DummyClient:
+368 |         def __init__(self, *args, **kwargs):
+    |                            ^^^^^
+369 |             self.async_get_data = AsyncMock(
+370 |                 return_value={
+    |
+
+ARG002 Unused method argument: `args`
+   --> tests\components\ai_web_scraper\test_scraper.py:368:29
+    |
+367 |     class DummyClient:
+368 |         def __init__(self, *args, **kwargs):
+    |                             ^^^^
+369 |             self.async_get_data = AsyncMock(
+370 |                 return_value={
+    |
+
+ANN003 Missing type annotation for `**kwargs`
+   --> tests\components\ai_web_scraper\test_scraper.py:368:35
+    |
+367 |     class DummyClient:
+368 |         def __init__(self, *args, **kwargs):
+    |                                   ^^^^^^^^
+369 |             self.async_get_data = AsyncMock(
+370 |                 return_value={
+    |
+
+ARG002 Unused method argument: `kwargs`
+   --> tests\components\ai_web_scraper\test_scraper.py:368:37
+    |
+367 |     class DummyClient:
+368 |         def __init__(self, *args, **kwargs):
+    |                                     ^^^^^^
+369 |             self.async_get_data = AsyncMock(
+370 |                 return_value={
+    |
+
+ARG005 Unused lambda argument: `hass`
+   --> tests\components\ai_web_scraper\test_scraper.py:386:82
+    |
+385 |     monkeypatch.setattr(integration_init, "IntegrationBlueprintApiClient", DummyClient)
+386 |     monkeypatch.setattr(integration_init, "async_get_loaded_integration", lambda hass, domain: None)
+    |                                                                                  ^^^^
+387 |
+388 |     forward_setups = AsyncMock()
+    |
+
+ARG005 Unused lambda argument: `domain`
+   --> tests\components\ai_web_scraper\test_scraper.py:386:88
+    |
+385 |     monkeypatch.setattr(integration_init, "IntegrationBlueprintApiClient", DummyClient)
+386 |     monkeypatch.setattr(integration_init, "async_get_loaded_integration", lambda hass, domain: None)
+    |                                                                                        ^^^^^^
+387 |
+388 |     forward_setups = AsyncMock()
+    |
+
+E501 Line too long (100 > 88)
+   --> tests\components\ai_web_scraper\test_scraper.py:386:89
+    |
+385 |     monkeypatch.setattr(integration_init, "IntegrationBlueprintApiClient", DummyClient)
+386 |     monkeypatch.setattr(integration_init, "async_get_loaded_integration", lambda hass, domain: None)
+    |                                                                                         ^^^^^^^^^^^^
+387 |
+388 |     forward_setups = AsyncMock()
+    |
+
+E501 Line too long (90 > 88)
+   --> tests\components\ai_web_scraper\test_scraper.py:389:89
+    |
+388 |     forward_setups = AsyncMock()
+389 |     monkeypatch.setattr(hass.config_entries, "async_forward_entry_setups", forward_setups)
+    |                                                                                         ^^
+390 |
+391 |     result = await integration_init.async_setup_entry(hass, scraper_entry)
+    |
+
+ARG001 Unused function argument: `monkeypatch`
+   --> tests\components\ai_web_scraper\test_scraper.py:402:55
+    |
+402 | async def test_scraper_privacy_does_not_persist_files(monkeypatch: Any) -> None:
+    |                                                       ^^^^^^^^^^^
+403 |     """Test that scraper operation does not persist HTML or screenshot files."""
+404 |     integration_path = Path("custom_components") / "ai_web_scraper"
+    |
+
+SLF001 Private member accessed: `_api_wrapper`
+   --> tests\components\ai_web_scraper\test_scraper.py:427:5
+    |
+425 |     )
+426 |
+427 |     client._api_wrapper = AsyncMock(return_value={"body": "no persist"})
+    |     ^^^^^^^^^^^^^^^^^^^
+428 |
+429 |     await client.async_get_data()
+    |
+
+Found 18 errors.
+[*] 2 fixable with the `--fix` option (1 hidden fix can be enabled with the `--unsafe-fixes` option).

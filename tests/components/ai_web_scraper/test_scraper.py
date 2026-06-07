@@ -1,43 +1,58 @@
+# ruff: noqa: S101
 """Tests for the ai_web_scraper scraper entity behavior."""
 
+from __future__ import annotations
+
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock
 
-from homeassistant.config_entries import ConfigEntry
+import pytest
 from homeassistant.components.binary_sensor import BinarySensorEntityDescription
 from homeassistant.components.sensor import SensorEntityDescription
+from homeassistant.config_entries import ConfigEntry
 
-from custom_components.ai_web_scraper.button import (
-    ENTITY_DESCRIPTIONS as BUTTON_ENTITY_DESCRIPTIONS,
-    IntegrationBlueprintButton,
-)
-from custom_components.ai_web_scraper.binary_sensor import IntegrationBlueprintBinarySensor
-from custom_components.ai_web_scraper.const import (
-    CONF_ENTRY_TYPE,
-    CONF_PROVIDER_ID,
-    CONF_SCRAPER_NAME,
-    CONF_URL,
-    CONF_PROMPT,
-    CONF_EXTRACTION_MODE,
-    CONF_INTERVAL_SECONDS,
-    DOMAIN,
-    ENTRY_TYPE_SCRAPER,
-)
-from custom_components.ai_web_scraper.coordinator import AIWebScraperDataUpdateCoordinator
-from custom_components.ai_web_scraper.const import LOGGER
-from custom_components.ai_web_scraper.data import IntegrationBlueprintData
-from custom_components.ai_web_scraper.sensor import (
-    ENTITY_DESCRIPTIONS as SENSOR_ENTITY_DESCRIPTIONS,
-    IntegrationBlueprintSensor,
-)
+from custom_components.ai_web_scraper import __init__ as integration_init
 from custom_components.ai_web_scraper.api import (
     IntegrationBlueprintApiClient,
     IntegrationBlueprintApiClientError,
 )
-from custom_components.ai_web_scraper import __init__ as integration_init
+from custom_components.ai_web_scraper.binary_sensor import (
+    IntegrationBlueprintBinarySensor,
+)
+from custom_components.ai_web_scraper.button import (
+    ENTITY_DESCRIPTIONS as BUTTON_ENTITY_DESCRIPTIONS,
+)
+from custom_components.ai_web_scraper.button import (
+    IntegrationBlueprintButton,
+)
+from custom_components.ai_web_scraper.const import (
+    CONF_API_KEY,
+    CONF_ENTRY_TYPE,
+    CONF_EXTRACTION_MODE,
+    CONF_INTERVAL_SECONDS,
+    CONF_MODEL_NAME,
+    CONF_PROMPT,
+    CONF_PROVIDER_ID,
+    CONF_PROVIDER_NAME,
+    CONF_SCRAPER_NAME,
+    CONF_URL,
+    DOMAIN,
+    ENTRY_TYPE_SCRAPER,
+    LOGGER,
+)
+from custom_components.ai_web_scraper.coordinator import (
+    AIWebScraperDataUpdateCoordinator,
+)
+from custom_components.ai_web_scraper.data import IntegrationBlueprintData
+from custom_components.ai_web_scraper.sensor import IntegrationBlueprintSensor
+
+if TYPE_CHECKING:
+    from homeassistant.core import HomeAssistant
 
 
-async def test_coordinator_fetches_scrape_data(hass):
+async def test_coordinator_fetches_scrape_data(hass: HomeAssistant) -> None:
+    """Test that coordinator fetches scraper data from runtime_data.client."""
     entry = ConfigEntry(
         version=1,
         domain=DOMAIN,
@@ -87,13 +102,17 @@ async def test_coordinator_fetches_scrape_data(hass):
 
 
 class DummyCoordinator:
-    def __init__(self, entry, data):
+    """Minimal coordinator stub used by button and sensor tests."""
+
+    def __init__(self, entry: ConfigEntry, data: dict[str, Any]) -> None:
+        """Initialize the dummy coordinator."""
         self.config_entry = entry
         self.data = data
         self.async_request_refresh = AsyncMock()
 
 
-async def test_refresh_button_requests_refresh():
+async def test_refresh_button_requests_refresh() -> None:
+    """Test that pressing the refresh button requests coordinator refresh."""
     entry = ConfigEntry(
         version=1,
         domain=DOMAIN,
@@ -123,7 +142,8 @@ async def test_refresh_button_requests_refresh():
     coordinator.async_request_refresh.assert_awaited_once()
 
 
-def test_sensor_reports_coordinator_state():
+def test_sensor_reports_coordinator_state() -> None:
+    """Test that the sensor reports the coordinator state and attributes."""
     entry = ConfigEntry(
         version=1,
         domain=DOMAIN,
@@ -159,7 +179,8 @@ def test_sensor_reports_coordinator_state():
     assert sensor.extra_state_attributes == state["attributes"]
 
 
-def test_status_binary_sensor_failure_state():
+def test_status_binary_sensor_failure_state() -> None:
+    """Test the status binary sensor failure state and attributes."""
     entry = ConfigEntry(
         version=1,
         domain=DOMAIN,
@@ -199,7 +220,8 @@ def test_status_binary_sensor_failure_state():
     assert binary_sensor.extra_state_attributes["last_attempt_status"] == "failure"
 
 
-async def test_build_entry_client_missing_provider_raises_error():
+async def test_build_entry_client_missing_provider_raises_error() -> None:
+    """Test that missing provider configuration raises an API error."""
     client = IntegrationBlueprintApiClient(
         provider_name="",
         api_key="",
@@ -212,15 +234,15 @@ async def test_build_entry_client_missing_provider_raises_error():
         session=AsyncMock(),
     )
 
-    try:
+    with pytest.raises(
+        IntegrationBlueprintApiClientError,
+        match="Missing provider configuration",
+    ):
         await client.async_get_data()
-    except IntegrationBlueprintApiClientError as exception:
-        assert "Missing provider configuration" in str(exception)
-    else:
-        raise AssertionError("Expected IntegrationBlueprintApiClientError")
 
 
-async def test_client_fetches_page_text_when_no_browserless_url():
+async def test_client_fetches_page_text_when_no_browserless_url() -> None:
+    """Test that the client fetches page text directly when browserless_url is unset."""
     response = AsyncMock()
     response.status = 200
     response.text = AsyncMock(return_value="Hello from example.com")
@@ -249,7 +271,11 @@ async def test_client_fetches_page_text_when_no_browserless_url():
     )
 
 
-async def test_setup_entry_zero_interval_is_manual_only(hass, monkeypatch):
+async def test_setup_entry_zero_interval_is_manual_only(
+    hass: HomeAssistant,
+    monkeypatch: Any,
+) -> None:
+    """Test that zero interval scrapers are manual-only and do not auto-schedule."""
     provider_entry = ConfigEntry(
         version=1,
         domain=DOMAIN,
@@ -286,10 +312,9 @@ async def test_setup_entry_zero_interval_is_manual_only(hass, monkeypatch):
     scraper_entry.add_to_hass(hass)
 
     class DummyClient:
-        def __init__(self, *args, **kwargs):
-            pass
+        """Dummy API client that returns static scrape data."""
 
-        async def async_get_data(self):
+        async def async_get_data(self) -> dict[str, Any]:
             return {
                 "state": "hello",
                 "attributes": {},
@@ -298,14 +323,26 @@ async def test_setup_entry_zero_interval_is_manual_only(hass, monkeypatch):
             }
 
     monkeypatch.setattr(integration_init, "IntegrationBlueprintApiClient", DummyClient)
-    monkeypatch.setattr(integration_init, "async_get_loaded_integration", lambda hass, domain: None)
+
+    def _ignore_loaded_integration(*_args: Any, **_kwargs: Any) -> None:
+        return None
+
+    monkeypatch.setattr(
+        integration_init,
+        "async_get_loaded_integration",
+        _ignore_loaded_integration,
+    )
 
     result = await integration_init.async_setup_entry(hass, scraper_entry)
     assert result is True
     assert scraper_entry.runtime_data.coordinator.update_interval is None
 
 
-async def test_setup_entry_creates_scraper_entities_and_initial_scrape(hass, monkeypatch):
+async def test_setup_entry_creates_scraper_entities_and_initial_scrape(
+    hass: HomeAssistant,
+    monkeypatch: Any,
+) -> None:
+    """Test that scraper setup creates entities and performs an initial scrape."""
     provider_entry = ConfigEntry(
         version=1,
         domain=DOMAIN,
@@ -342,28 +379,40 @@ async def test_setup_entry_creates_scraper_entities_and_initial_scrape(hass, mon
     scraper_entry.add_to_hass(hass)
 
     class DummyClient:
-        def __init__(self, *args, **kwargs):
-            self.async_get_data = AsyncMock(
-                return_value={
-                    "state": "hello",
-                    "attributes": {
-                        "url": "https://example.com",
-                        "prompt": "Extract text",
-                        "provider_name": "Test Provider",
-                        "extraction_mode": "dom",
-                        "scrape_duration_seconds": 0,
-                        "last_successful_scrape": "2026-06-08T00:00:00",
-                    },
-                    "error_message": "",
-                    "last_attempt_status": "success",
-                }
-            )
+        """Dummy API client that returns static scrape data."""
+
+        async def async_get_data(self) -> dict[str, Any]:
+            return {
+                "state": "hello",
+                "attributes": {
+                    "url": "https://example.com",
+                    "prompt": "Extract text",
+                    "provider_name": "Test Provider",
+                    "extraction_mode": "dom",
+                    "scrape_duration_seconds": 0,
+                    "last_successful_scrape": "2026-06-08T00:00:00",
+                },
+                "error_message": "",
+                "last_attempt_status": "success",
+            }
 
     monkeypatch.setattr(integration_init, "IntegrationBlueprintApiClient", DummyClient)
-    monkeypatch.setattr(integration_init, "async_get_loaded_integration", lambda hass, domain: None)
+
+    def _ignore_loaded_integration(*_args: Any, **_kwargs: Any) -> None:
+        return None
+
+    monkeypatch.setattr(
+        integration_init,
+        "async_get_loaded_integration",
+        _ignore_loaded_integration,
+    )
 
     forward_setups = AsyncMock()
-    monkeypatch.setattr(hass.config_entries, "async_forward_entry_setups", forward_setups)
+    monkeypatch.setattr(
+        hass.config_entries,
+        "async_forward_entry_setups",
+        forward_setups,
+    )
 
     result = await integration_init.async_setup_entry(hass, scraper_entry)
 
@@ -376,7 +425,8 @@ async def test_setup_entry_creates_scraper_entities_and_initial_scrape(hass, mon
     )
 
 
-async def test_scraper_privacy_does_not_persist_files(monkeypatch):
+async def test_scraper_privacy_does_not_persist_files() -> None:
+    """Test that scraper operation does not persist HTML or screenshot files."""
     integration_path = Path("custom_components") / "ai_web_scraper"
     known_files = {
         file.relative_to(integration_path)
@@ -388,19 +438,33 @@ async def test_scraper_privacy_does_not_persist_files(monkeypatch):
         )
     }
 
+    class DummyResponse:
+        def __init__(self) -> None:
+            self.headers = {"Content-Type": "application/json"}
+
+        async def json(self) -> dict[str, str]:
+            return {"body": "no persist"}
+
+        async def text(self) -> str:
+            return "no persist"
+
+        def raise_for_status(self) -> None:
+            return None
+
+    session = AsyncMock()
+    session.request.return_value = DummyResponse()
+
     client = IntegrationBlueprintApiClient(
         provider_name="provider",
         api_key="key",
         model_name="gpt-4",
-        browserless_url="",
+        browserless_url="https://example.com/api",
         scraper_name="Test Scraper",
         url="https://example.com",
         prompt="test",
         extraction_mode="dom",
-        session=AsyncMock(),
+        session=session,
     )
-
-    client._api_wrapper = AsyncMock(return_value={"body": "no persist"})
 
     await client.async_get_data()
 

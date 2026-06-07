@@ -1,27 +1,36 @@
+# ruff: noqa: S101
 """Tests for the ai_web_scraper config flow."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 from homeassistant import config_entries
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.data_entry_flow import RESULT_TYPE_FORM, RESULT_TYPE_CREATE_ENTRY
+from homeassistant.data_entry_flow import RESULT_TYPE_CREATE_ENTRY, RESULT_TYPE_FORM
 
 from custom_components.ai_web_scraper.const import (
-    CONF_ENTRY_TYPE,
-    CONF_MODEL_NAME,
-    CONF_PROVIDER_NAME,
     CONF_API_KEY,
-    CONF_PROVIDER_ID,
-    CONF_SCRAPER_NAME,
-    CONF_URL,
-    CONF_PROMPT,
+    CONF_ENTRY_TYPE,
     CONF_EXTRACTION_MODE,
     CONF_INTERVAL_SECONDS,
+    CONF_MODEL_NAME,
+    CONF_PROMPT,
+    CONF_PROVIDER_ID,
+    CONF_PROVIDER_NAME,
+    CONF_SCRAPER_NAME,
+    CONF_URL,
+    DOMAIN,
     ENTRY_TYPE_PROVIDER,
     ENTRY_TYPE_SCRAPER,
 )
-from custom_components.ai_web_scraper.const import DOMAIN
+
+if TYPE_CHECKING:
+    from homeassistant.core import HomeAssistant
 
 
-async def test_config_flow_shows_choice(hass):
+async def test_config_flow_shows_choice(hass: HomeAssistant) -> None:
+    """Test that the initial config flow step shows the entry type chooser."""
     result = await hass.config_entries.flow.async_init(
         DOMAIN,
         context={"source": config_entries.SOURCE_USER},
@@ -32,7 +41,8 @@ async def test_config_flow_shows_choice(hass):
     assert CONF_ENTRY_TYPE in result["data_schema"].schema
 
 
-async def test_add_provider_profile(hass):
+async def test_add_provider_profile(hass: HomeAssistant) -> None:
+    """Test that the provider creation flow returns a created entry."""
     result = await hass.config_entries.flow.async_init(
         DOMAIN,
         context={"source": config_entries.SOURCE_USER},
@@ -60,7 +70,8 @@ async def test_add_provider_profile(hass):
     assert result["data"][CONF_PROVIDER_NAME] == "Test Provider"
 
 
-async def test_add_scraper_requires_provider(hass):
+async def test_add_scraper_requires_provider(hass: HomeAssistant) -> None:
+    """Test that scraper creation requires a provider when none exist."""
     result = await hass.config_entries.flow.async_init(
         DOMAIN,
         context={"source": config_entries.SOURCE_USER},
@@ -76,7 +87,8 @@ async def test_add_scraper_requires_provider(hass):
     assert "entry_type" in result["data_schema"]
 
 
-async def test_provider_list_populates_in_scraper_form(hass):
+async def test_provider_list_populates_in_scraper_form(hass: HomeAssistant) -> None:
+    """Test that available providers appear in the scraper form."""
     provider_entry = ConfigEntry(
         version=1,
         domain=DOMAIN,
@@ -107,7 +119,8 @@ async def test_provider_list_populates_in_scraper_form(hass):
     assert CONF_PROVIDER_ID in result["data_schema"].schema
 
 
-async def test_add_scraper_with_provider(hass):
+async def test_add_scraper_with_provider(hass: HomeAssistant) -> None:
+    """Test that a scraper can be created when a provider exists."""
     provider_entry = ConfigEntry(
         version=1,
         domain=DOMAIN,
@@ -154,7 +167,8 @@ async def test_add_scraper_with_provider(hass):
     assert result["data"][CONF_SCRAPER_NAME] == "Test Scraper"
 
 
-async def test_provider_reconfigure_updates_entry(hass):
+async def test_provider_reconfigure_updates_entry(hass: HomeAssistant) -> None:
+    """Test that provider options flow updates provider data."""
     provider_entry = ConfigEntry(
         version=1,
         domain=DOMAIN,
