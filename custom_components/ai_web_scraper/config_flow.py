@@ -254,14 +254,14 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         """Initialize the options flow."""
-        self.config_entry = config_entry
+        self._config_entry = config_entry
 
     async def async_step_init(
         self,
         user_input: dict | None = None,
     ) -> config_entries.FlowResult:
         """Handle the initial step of the options flow."""
-        entry_type = self.config_entry.data.get(CONF_ENTRY_TYPE)
+        entry_type = self._config_entry.data.get(CONF_ENTRY_TYPE)
         if entry_type == ENTRY_TYPE_PROVIDER:
             return await self.async_step_provider(user_input)
         return await self.async_step_scraper(user_input)
@@ -283,9 +283,9 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
                 for field in missing:
                     errors[field] = "required"
             else:
-                self.config_entry.async_update_entry(
+                self._config_entry.async_update_entry(
                     data={
-                        **self.config_entry.data,
+                        **self._config_entry.data,
                         CONF_PROVIDER_NAME: user_input[CONF_PROVIDER_NAME],
                         CONF_API_KEY: user_input[CONF_API_KEY],
                         CONF_MODEL_NAME: user_input[CONF_MODEL_NAME],
@@ -298,7 +298,7 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
             {
                 vol.Required(
                     CONF_PROVIDER_NAME,
-                    default=self.config_entry.data.get(
+                    default=self._config_entry.data.get(
                         CONF_PROVIDER_NAME, vol.UNDEFINED
                     ),
                 ): selector.TextSelector(
@@ -306,19 +306,19 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
                 ),
                 vol.Required(
                     CONF_API_KEY,
-                    default=self.config_entry.data.get(CONF_API_KEY, vol.UNDEFINED),
+                    default=self._config_entry.data.get(CONF_API_KEY, vol.UNDEFINED),
                 ): selector.TextSelector(
                     selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
                 ),
                 vol.Required(
                     CONF_MODEL_NAME,
-                    default=self.config_entry.data.get(CONF_MODEL_NAME, vol.UNDEFINED),
+                    default=self._config_entry.data.get(CONF_MODEL_NAME, vol.UNDEFINED),
                 ): selector.TextSelector(
                     selector.TextSelectorConfig(type=selector.TextSelectorType.TEXT)
                 ),
                 vol.Optional(
                     CONF_BROWSERLESS_URL,
-                    default=self.config_entry.data.get(
+                    default=self._config_entry.data.get(
                         CONF_BROWSERLESS_URL, vol.UNDEFINED
                     ),
                 ): selector.TextSelector(
@@ -360,9 +360,9 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
             if not user_input.get(CONF_PROMPT):
                 errors[CONF_PROMPT] = "required"
             if not errors:
-                self.config_entry.async_update_entry(
+                self._config_entry.async_update_entry(
                     data={
-                        **self.config_entry.data,
+                        **self._config_entry.data,
                         CONF_SCRAPER_NAME: user_input[CONF_SCRAPER_NAME],
                         CONF_PROVIDER_ID: user_input[CONF_PROVIDER_ID],
                         CONF_URL: user_input[CONF_URL],
@@ -376,29 +376,29 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
         schema_dict: dict[vol.Required, object] = {
             vol.Required(
                 CONF_SCRAPER_NAME,
-                default=self.config_entry.data.get(CONF_SCRAPER_NAME, vol.UNDEFINED),
+                default=self._config_entry.data.get(CONF_SCRAPER_NAME, vol.UNDEFINED),
             ): selector.TextSelector(
                 selector.TextSelectorConfig(type=selector.TextSelectorType.TEXT)
             ),
             vol.Required(
                 CONF_URL,
-                default=self.config_entry.data.get(CONF_URL, vol.UNDEFINED),
+                default=self._config_entry.data.get(CONF_URL, vol.UNDEFINED),
             ): selector.TextSelector(
                 selector.TextSelectorConfig(type=selector.TextSelectorType.URL)
             ),
             vol.Required(
                 CONF_PROMPT,
-                default=self.config_entry.data.get(CONF_PROMPT, vol.UNDEFINED),
+                default=self._config_entry.data.get(CONF_PROMPT, vol.UNDEFINED),
             ): selector.TextSelector(
                 selector.TextSelectorConfig(type=selector.TextSelectorType.TEXT)
             ),
             vol.Required(
                 CONF_EXTRACTION_MODE,
-                default=self.config_entry.data.get(CONF_EXTRACTION_MODE, vol.UNDEFINED),
+                default=self._config_entry.data.get(CONF_EXTRACTION_MODE, vol.UNDEFINED),
             ): vol.In(EXTRACTION_MODES),
             vol.Required(
                 CONF_INTERVAL_SECONDS,
-                default=self.config_entry.data.get(CONF_INTERVAL_SECONDS, 60),
+                default=self._config_entry.data.get(CONF_INTERVAL_SECONDS, 60),
             ): vol.All(vol.Coerce(int), vol.Range(min=0)),
         }
 
@@ -406,7 +406,7 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
             schema_dict[
                 vol.Required(
                     CONF_PROVIDER_ID,
-                    default=self.config_entry.data.get(CONF_PROVIDER_ID, vol.UNDEFINED),
+                    default=self._config_entry.data.get(CONF_PROVIDER_ID, vol.UNDEFINED),
                 )
             ] = vol.In(provider_options)
 
