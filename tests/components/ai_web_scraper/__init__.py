@@ -1,1 +1,1 @@
-# Package marker for ai_web_scraper component tests.
+"""Tests for the ai_web_scraper component."""

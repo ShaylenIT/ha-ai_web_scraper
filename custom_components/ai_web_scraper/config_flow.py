@@ -394,7 +394,9 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
             ),
             vol.Required(
                 CONF_EXTRACTION_MODE,
-                default=self._config_entry.data.get(CONF_EXTRACTION_MODE, vol.UNDEFINED),
+                default=self._config_entry.data.get(
+                    CONF_EXTRACTION_MODE, vol.UNDEFINED
+                ),
             ): vol.In(EXTRACTION_MODES),
             vol.Required(
                 CONF_INTERVAL_SECONDS,
@@ -406,7 +408,9 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
             schema_dict[
                 vol.Required(
                     CONF_PROVIDER_ID,
-                    default=self._config_entry.data.get(CONF_PROVIDER_ID, vol.UNDEFINED),
+                    default=self._config_entry.data.get(
+                        CONF_PROVIDER_ID, vol.UNDEFINED
+                    ),
                 )
             ] = vol.In(provider_options)
 
