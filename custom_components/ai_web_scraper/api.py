@@ -162,7 +162,7 @@ class IntegrationBlueprintApiClient:
                     return await response.json()
                 try:
                     return await response.json()
-                except (aiohttp.ContentTypeError, ValueError):
+                except aiohttp.ContentTypeError, ValueError:
                     return await response.text()
 
         except TimeoutError as exception:
