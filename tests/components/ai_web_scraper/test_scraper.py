@@ -187,6 +187,7 @@ async def test_refresh_button_requests_refresh() -> None:
         entity_description=BUTTON_ENTITY_DESCRIPTIONS[0],
     )
 
+    assert button.name == "Test Scraper Refresh"
     await button.async_press()
 
     coordinator.async_request_refresh.assert_awaited_once()
@@ -225,6 +226,7 @@ def test_sensor_reports_coordinator_state() -> None:
         ),
     )
 
+    assert sensor.name == "Test Scraper Data"
     assert sensor.native_value == "parsed result"
     assert sensor.extra_state_attributes == state["attributes"]
 
@@ -265,6 +267,7 @@ def test_status_binary_sensor_failure_state() -> None:
         ),
     )
 
+    assert binary_sensor.name == "Test Scraper Status"
     assert binary_sensor.is_on is True
     assert binary_sensor.extra_state_attributes["error_message"] == "Missing provider"
     assert binary_sensor.extra_state_attributes["last_attempt_status"] == "failure"

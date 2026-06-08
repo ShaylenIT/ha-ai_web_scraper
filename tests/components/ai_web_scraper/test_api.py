@@ -156,6 +156,66 @@ def test_api_wrapper_rate_limit_error_message() -> None:
         assert "Provider rate limit exceeded" in str(exception)
 
 
+def test_api_wrapper_retries_server_errors_once() -> None:
+    class FakeResponse:
+        def __init__(self, status: int, raise_error: bool = False) -> None:
+            self.status = status
+            self.headers = {"Content-Type": "application/json"}
+            if raise_error:
+                self.raise_for_status = AsyncMock(
+                    side_effect=aiohttp.ClientResponseError(
+                        request_info=None,
+                        history=(),
+                        status=status,
+                        message="Service Unavailable",
+                    )
+                )
+            else:
+                self.raise_for_status = AsyncMock()
+
+        async def json(self) -> dict[str, str]:
+            return {"choices": [{"message": {"content": "Extracted after retry"}}]}
+
+        async def text(self) -> str:
+            return ""
+
+    class FakeSession:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def request(
+            self,
+            method: str,
+            url: str,
+            headers: dict | None = None,
+            json: dict | None = None,
+        ) -> FakeResponse:
+            self.calls += 1
+            if self.calls == 1:
+                return FakeResponse(503, raise_error=True)
+            return FakeResponse(200)
+
+    session = FakeSession()
+
+    client = IntegrationBlueprintApiClient(
+        provider_name="Test Provider",
+        api_key="test-key",
+        model_name="gpt-4",
+        browserless_url="",
+        scraper_name="Test Scraper",
+        url="https://example.com",
+        prompt="Extract text",
+        extraction_mode="dom",
+        session=session,
+    )
+    client._get_page_text = AsyncMock(return_value="<html>hello</html>")
+
+    result = asyncio.run(client.async_get_data())
+
+    assert session.calls == 2
+    assert result["state"] == "Extracted after retry"
+
+
 def test_normalize_page_text_removes_html_tags() -> None:
     client = IntegrationBlueprintApiClient(
         provider_name="Test Provider",

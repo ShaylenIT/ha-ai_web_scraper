@@ -516,46 +516,58 @@ class IntegrationBlueprintApiClient:
         headers: dict | None = None,
     ) -> Any:
         """Make a request to the remote API."""
-        try:
-            async with async_timeout.timeout(10):
-                response = await self._session.request(
-                    method=method,
-                    url=url,
-                    headers=headers,
-                    json=data,
-                )
-                await _verify_response_or_raise(response)
-                content_type = response.headers.get("Content-Type", "")
-                if "application/json" in content_type:
-                    return await response.json()
-                try:
-                    return await response.json()
-                except (aiohttp.ContentTypeError, ValueError):
-                    return await response.text()
+        max_attempts = 2
+        for attempt in range(max_attempts):
+            try:
+                async with async_timeout.timeout(10):
+                    response = await self._session.request(
+                        method=method,
+                        url=url,
+                        headers=headers,
+                        json=data,
+                    )
+                    await _verify_response_or_raise(response)
+                    content_type = response.headers.get("Content-Type", "")
+                    if "application/json" in content_type:
+                        return await response.json()
+                    try:
+                        return await response.json()
+                    except (aiohttp.ContentTypeError, ValueError):
+                        return await response.text()
 
-        except TimeoutError as exception:
-            msg = f"Timeout error fetching information - {exception}"
-            raise IntegrationBlueprintApiClientCommunicationError(msg) from exception
-        except aiohttp.ClientResponseError as exception:
-            if exception.status == HTTP_STATUS_NOT_FOUND:
-                msg = (
-                    "Browserless API returned 404 Not Found. "
-                    "Check your configured browserless_url and the service path."
-                )
-            elif exception.status == 429:
-                msg = (
-                    "Provider rate limit exceeded (429 Too Many Requests). "
-                    "Reduce scrape frequency, check provider quota, or use a different API key."
-                )
-            else:
-                msg = (
-                    "Error fetching information - "
-                    f"{exception.status} {exception.message}"
-                )
-            raise IntegrationBlueprintApiClientCommunicationError(msg) from exception
-        except (aiohttp.ClientError, socket.gaierror) as exception:
-            msg = f"Error fetching information - {exception}"
-            raise IntegrationBlueprintApiClientCommunicationError(msg) from exception
-        except Exception as exception:  # pylint: disable=broad-except
-            msg = f"Something really wrong happened! - {exception}"
-            raise IntegrationBlueprintApiClientError(msg) from exception
+            except TimeoutError as exception:
+                msg = f"Timeout error fetching information - {exception}"
+                raise IntegrationBlueprintApiClientCommunicationError(msg) from exception
+            except aiohttp.ClientResponseError as exception:
+                if (
+                    attempt < max_attempts - 1
+                    and 500 <= exception.status < 600
+                ):
+                    await asyncio.sleep(5)
+                    continue
+                if exception.status == HTTP_STATUS_NOT_FOUND:
+                    msg = (
+                        "Browserless API returned 404 Not Found. "
+                        "Check your configured browserless_url and the service path."
+                    )
+                elif exception.status == 429:
+                    msg = (
+                        "Provider rate limit exceeded (429 Too Many Requests). "
+                        "Reduce scrape frequency, check provider quota, or use a different API key."
+                    )
+                else:
+                    msg = (
+                        "Error fetching information - "
+                        f"{exception.status} {exception.message}"
+                    )
+                raise IntegrationBlueprintApiClientCommunicationError(msg) from exception
+            except (aiohttp.ClientError, socket.gaierror) as exception:
+                msg = f"Error fetching information - {exception}"
+                raise IntegrationBlueprintApiClientCommunicationError(msg) from exception
+            except Exception as exception:  # pylint: disable=broad-except
+                msg = f"Something really wrong happened! - {exception}"
+                raise IntegrationBlueprintApiClientError(msg) from exception
+
+        raise IntegrationBlueprintApiClientCommunicationError(
+            "Error fetching information - retries exhausted"
+        )

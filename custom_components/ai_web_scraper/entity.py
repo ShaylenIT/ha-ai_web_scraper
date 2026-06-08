@@ -32,6 +32,8 @@ class IntegrationBlueprintEntity(CoordinatorEntity[AIWebScraperDataUpdateCoordin
             self._attr_unique_id = (
                 f"{coordinator.config_entry.entry_id}_{entity_description.key}"
             )
+            name_suffix = entity_description.name.replace("Scraper", "").strip()
+            self._attr_name = f"{coordinator.config_entry.title} {name_suffix}"
 
         self._attr_device_info = DeviceInfo(
             identifiers={
