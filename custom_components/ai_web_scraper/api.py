@@ -351,17 +351,30 @@ class IntegrationBlueprintApiClient:
         raise IntegrationBlueprintApiClientError("Unable to fetch page content")
 
     async def _fetch_browserless_page_text(self, url: str) -> str:
-        """Fetch rendered page content via browserless."""
+        """Fetch rendered page content via browserless.
+
+        The Browserless /content endpoint is asked to wait for the page to settle
+        by using gotoOptions.waitUntil=networkidle2 and bestAttempt=True.
+        """
         browserless_url = self._normalize_browserless_url(self._browserless_url)
         parsed_url = urlparse(browserless_url)
         parsed_url = parsed_url._replace(query=urlencode(parse_qs(parsed_url.query), doseq=True))
+
+        payload = {
+            "url": url,
+            "gotoOptions": {
+                "waitUntil": "networkidle2",
+                "timeout": 30000,
+            },
+            "bestAttempt": True,
+        }
 
         for attempt in range(2):
             try:
                 async with async_timeout.timeout(30):
                     response = await self._session.post(
                         urlunparse(parsed_url),
-                        json={"url": url},
+                        json=payload,
                         headers={
                             "Accept": "text/html",
                             "User-Agent": "Mozilla/5.0 (HomeAssistant) ai_web_scraper",

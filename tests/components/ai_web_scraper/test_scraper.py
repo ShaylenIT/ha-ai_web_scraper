@@ -403,7 +403,11 @@ async def test_client_uses_browserless_content_endpoint_when_base_url_passed() -
     assert data["state"] == "Rendered extracted output"
     session.post.assert_awaited_once_with(
         "http://browserless:3000/content",
-        json={"url": "https://example.com"},
+        json={
+            "url": "https://example.com",
+            "gotoOptions": {"waitUntil": "networkidle2", "timeout": 30000},
+            "bestAttempt": True,
+        },
         headers={
             "Accept": "text/html",
             "User-Agent": "Mozilla/5.0 (HomeAssistant) ai_web_scraper",
@@ -478,7 +482,11 @@ async def test_client_uses_browserless_content_endpoint_when_content_path_has_tr
     assert data["state"] == "Rendered extracted output"
     session.post.assert_awaited_once_with(
         "http://browserless:3000/content",
-        json={"url": "https://example.com"},
+        json={
+            "url": "https://example.com",
+            "gotoOptions": {"waitUntil": "networkidle2", "timeout": 30000},
+            "bestAttempt": True,
+        },
         headers={
             "Accept": "text/html",
             "User-Agent": "Mozilla/5.0 (HomeAssistant) ai_web_scraper",
