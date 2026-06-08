@@ -12,6 +12,8 @@ from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 import aiohttp
 import async_timeout
 
+from .const import PROVIDER_TYPE_GEMINI, PROVIDER_TYPE_OPENAI
+
 HTTP_STATUS_NOT_FOUND = 404
 
 
@@ -56,12 +58,14 @@ class IntegrationBlueprintApiClient:
         prompt: str,
         extraction_mode: str,
         session: aiohttp.ClientSession,
+        provider_type: str = PROVIDER_TYPE_OPENAI,
     ) -> None:
         """Initialize the scraper client."""
         self._provider_name = provider_name
         self._api_key = api_key
         self._model_name = model_name
         self._browserless_url = browserless_url
+        self._provider_type = provider_type
         self._scraper_name = scraper_name
         self._url = url
         self._prompt = prompt
@@ -215,6 +219,9 @@ class IntegrationBlueprintApiClient:
 
     async def _provider_extract(self, page_text: str) -> str:
         """Use the configured provider to extract the prompt result from the page text."""
+        if self._provider_type == PROVIDER_TYPE_GEMINI:
+            return await self._gemini_provider_extract(page_text)
+
         response = await self._api_wrapper(
             method="post",
             url="https://api.openai.com/v1/chat/completions",
@@ -257,6 +264,59 @@ class IntegrationBlueprintApiClient:
                 content = choice["message"].get("content", "") or ""
             else:
                 content = choice.get("text", "") or ""
+
+            if not content.strip():
+                raise IntegrationBlueprintApiClientError(
+                    "Provider returned an empty completion result."
+                )
+            if self._looks_like_html(content):
+                raise IntegrationBlueprintApiClientError(
+                    "Provider returned HTML instead of extracted text."
+                )
+            return content.strip()
+
+        extracted = str(response).strip()
+        if self._looks_like_html(extracted):
+            raise IntegrationBlueprintApiClientError(
+                "Provider returned HTML instead of extracted text."
+            )
+        if not extracted:
+            raise IntegrationBlueprintApiClientError(
+                "Provider returned an empty response."
+            )
+        return extracted
+
+    async def _gemini_provider_extract(self, page_text: str) -> str:
+        """Use a Google Gemini provider to extract the prompt result."""
+        response = await self._api_wrapper(
+            method="post",
+            url=f"https://api.labs.google/v1alpha2/models/{self._model_name}:generate",
+            headers={
+                "Authorization": f"Bearer {self._api_key}",
+                "Content-Type": "application/json",
+            },
+            data={
+                "prompt": {
+                    "text": (
+                        f"Instructions: {self._prompt}\n\n"
+                        f"Web page content:\n{page_text}"
+                    )
+                },
+                "temperature": 0,
+            },
+        )
+
+        if isinstance(response, dict):
+            candidates = response.get("candidates", [])
+            if not candidates:
+                raise IntegrationBlueprintApiClientError(
+                    "Provider response did not contain any choices."
+                )
+
+            candidate = candidates[0]
+            content = candidate.get("content", "") or candidate.get("output", "")
+            if not isinstance(content, str):
+                content = str(content)
 
             if not content.strip():
                 raise IntegrationBlueprintApiClientError(

@@ -22,14 +22,16 @@ from .const import (
     CONF_EXTRACTION_MODE,
     CONF_INTERVAL_SECONDS,
     CONF_MODEL_NAME,
-    CONF_PROMPT,
     CONF_PROVIDER_ID,
     CONF_PROVIDER_NAME,
+    CONF_PROVIDER_TYPE,
+    CONF_PROMPT,
     CONF_SCRAPER_NAME,
     CONF_URL,
     ENTRY_TYPE_PROVIDER,
     ENTRY_TYPE_SCRAPER,
     LOGGER,
+    PROVIDER_TYPE_OPENAI,
 )
 from .coordinator import AIWebScraperDataUpdateCoordinator
 from .data import (
@@ -57,12 +59,18 @@ def _build_entry_client(
         api_key = provider_entry.data.get(CONF_API_KEY, "")
         model_name = provider_entry.data.get(CONF_MODEL_NAME, "")
         browserless_url = provider_entry.data.get(CONF_BROWSERLESS_URL, "")
+        provider_type = provider_entry.data.get(
+            CONF_PROVIDER_TYPE, PROVIDER_TYPE_OPENAI
+        )
+    else:
+        provider_type = PROVIDER_TYPE_OPENAI
 
     return IntegrationBlueprintApiClient(
         provider_name=provider_name,
         api_key=api_key,
         model_name=model_name,
         browserless_url=browserless_url,
+        provider_type=provider_type,
         scraper_name=entry.data.get(CONF_SCRAPER_NAME, entry.title),
         url=entry.data.get(CONF_URL, ""),
         prompt=entry.data.get(CONF_PROMPT, ""),

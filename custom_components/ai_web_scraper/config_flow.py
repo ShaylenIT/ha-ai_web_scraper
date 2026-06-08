@@ -18,12 +18,15 @@ from .const import (
     CONF_PROMPT,
     CONF_PROVIDER_ID,
     CONF_PROVIDER_NAME,
+    CONF_PROVIDER_TYPE,
     CONF_SCRAPER_NAME,
     CONF_URL,
     DOMAIN,
     ENTRY_TYPE_PROVIDER,
     ENTRY_TYPE_SCRAPER,
     EXTRACTION_MODES,
+    PROVIDER_TYPE_OPENAI,
+    PROVIDER_TYPES,
 )
 from .data import get_provider_entries
 
@@ -91,6 +94,12 @@ class AIWebScraperConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 ): selector.TextSelector(
                     selector.TextSelectorConfig(type=selector.TextSelectorType.TEXT)
                 ),
+                vol.Required(
+                    CONF_PROVIDER_TYPE,
+                    default=(user_input or {}).get(
+                        CONF_PROVIDER_TYPE, PROVIDER_TYPE_OPENAI
+                    ),
+                ): vol.In(PROVIDER_TYPES),
                 vol.Required(
                     CONF_API_KEY,
                     default=(user_input or {}).get(CONF_API_KEY, vol.UNDEFINED),
@@ -167,7 +176,12 @@ class AIWebScraperConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             missing = [
                 field
-                for field in [CONF_PROVIDER_NAME, CONF_API_KEY, CONF_MODEL_NAME]
+                for field in [
+                    CONF_PROVIDER_NAME,
+                    CONF_PROVIDER_TYPE,
+                    CONF_API_KEY,
+                    CONF_MODEL_NAME,
+                ]
                 if not user_input.get(field)
             ]
             if missing:
@@ -181,6 +195,7 @@ class AIWebScraperConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     data={
                         CONF_ENTRY_TYPE: ENTRY_TYPE_PROVIDER,
                         CONF_PROVIDER_NAME: user_input[CONF_PROVIDER_NAME],
+                        CONF_PROVIDER_TYPE: user_input[CONF_PROVIDER_TYPE],
                         CONF_API_KEY: user_input[CONF_API_KEY],
                         CONF_MODEL_NAME: user_input[CONF_MODEL_NAME],
                         CONF_BROWSERLESS_URL: user_input.get(CONF_BROWSERLESS_URL, ""),
@@ -276,7 +291,12 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
         if user_input is not None:
             missing = [
                 field
-                for field in [CONF_PROVIDER_NAME, CONF_API_KEY, CONF_MODEL_NAME]
+                for field in [
+                    CONF_PROVIDER_NAME,
+                    CONF_PROVIDER_TYPE,
+                    CONF_API_KEY,
+                    CONF_MODEL_NAME,
+                ]
                 if not user_input.get(field)
             ]
             if missing:
@@ -287,9 +307,12 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
                     data={
                         **self._config_entry.data,
                         CONF_PROVIDER_NAME: user_input[CONF_PROVIDER_NAME],
+                        CONF_PROVIDER_TYPE: user_input[CONF_PROVIDER_TYPE],
                         CONF_API_KEY: user_input[CONF_API_KEY],
                         CONF_MODEL_NAME: user_input[CONF_MODEL_NAME],
-                        CONF_BROWSERLESS_URL: user_input.get(CONF_BROWSERLESS_URL, ""),
+                        CONF_BROWSERLESS_URL: user_input.get(
+                            CONF_BROWSERLESS_URL, self._config_entry.data.get(CONF_BROWSERLESS_URL, "")
+                        ),
                     }
                 )
                 return self.async_create_entry(title="done", data={})
@@ -304,6 +327,12 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
                 ): selector.TextSelector(
                     selector.TextSelectorConfig(type=selector.TextSelectorType.TEXT)
                 ),
+                vol.Required(
+                    CONF_PROVIDER_TYPE,
+                    default=self._config_entry.data.get(
+                        CONF_PROVIDER_TYPE, PROVIDER_TYPE_OPENAI
+                    ),
+                ): vol.In(PROVIDER_TYPES),
                 vol.Required(
                     CONF_API_KEY,
                     default=self._config_entry.data.get(CONF_API_KEY, vol.UNDEFINED),

@@ -13,11 +13,19 @@ CONF_PROVIDER_NAME = "provider_name"
 CONF_API_KEY = "api_key"
 CONF_MODEL_NAME = "model_name"
 CONF_BROWSERLESS_URL = "browserless_url"
+CONF_PROVIDER_TYPE = "provider_type"
 CONF_SCRAPER_NAME = "scraper_name"
 CONF_URL = "url"
 CONF_PROMPT = "prompt"
 CONF_EXTRACTION_MODE = "extraction_mode"
 CONF_INTERVAL_SECONDS = "interval_seconds"
+
+PROVIDER_TYPE_OPENAI = "openai"
+PROVIDER_TYPE_GEMINI = "gemini"
+PROVIDER_TYPES = {
+    PROVIDER_TYPE_OPENAI: "OpenAI",
+    PROVIDER_TYPE_GEMINI: "Gemini",
+}
 
 ENTRY_TYPE_PROVIDER = "provider"
 ENTRY_TYPE_SCRAPER = "scraper"
