@@ -17,6 +17,202 @@ from .const import PROVIDER_TYPE_GEMINI, PROVIDER_TYPE_OPENAI
 HTTP_STATUS_NOT_FOUND = 404
 
 
+class Provider:
+    """Base provider implementation."""
+
+    def __init__(
+        self,
+        api_key: str,
+        model_name: str,
+        prompt: str,
+        request_func,
+    ) -> None:
+        self._api_key = api_key
+        self._model_name = model_name
+        self._prompt = prompt
+        self._request_func = request_func
+
+    async def extract(self, page_text: str) -> str:
+        raise NotImplementedError
+
+    async def _make_request(
+        self,
+        method: str,
+        url: str,
+        headers: dict[str, str],
+        data: dict | None = None,
+    ) -> Any:
+        return await self._request_func(
+            method=method,
+            url=url,
+            headers=headers,
+            data=data,
+        )
+
+
+class OpenAIProvider(Provider):
+    """OpenAI provider implementation."""
+
+    async def extract(self, page_text: str) -> str:
+        response = await self._make_request(
+            method="post",
+            url="https://api.openai.com/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {self._api_key}",
+                "Content-Type": "application/json",
+            },
+            data={
+                "model": self._model_name,
+                "temperature": 0,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a helpful assistant that extracts relevant information "
+                            "from a web page based on the user prompt. Return only the "
+                            "requested output without additional commentary."
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": (
+                            f"Instructions: {self._prompt}\n\n"
+                            f"Web page content:\n{page_text}"
+                        ),
+                    },
+                ],
+            },
+        )
+
+        if isinstance(response, dict):
+            choices = response.get("choices", [])
+            if not choices:
+                raise IntegrationBlueprintApiClientError(
+                    "Provider response did not contain any choices."
+                )
+
+            choice = choices[0]
+            if "message" in choice and isinstance(choice["message"], dict):
+                content = choice["message"].get("content", "") or ""
+            else:
+                content = choice.get("text", "") or ""
+
+            if not content.strip():
+                raise IntegrationBlueprintApiClientError(
+                    "Provider returned an empty completion result."
+                )
+            if self._looks_like_html(content):
+                raise IntegrationBlueprintApiClientError(
+                    "Provider returned HTML instead of extracted text."
+                )
+            return content.strip()
+
+        extracted = str(response).strip()
+        if self._looks_like_html(extracted):
+            raise IntegrationBlueprintApiClientError(
+                "Provider returned HTML instead of extracted text."
+            )
+        if not extracted:
+            raise IntegrationBlueprintApiClientError(
+                "Provider returned an empty response."
+            )
+        return extracted
+
+    def _looks_like_html(self, text: str) -> bool:
+        simplified = text.strip().lower()
+        return (
+            simplified.startswith("<!doctype html")
+            or simplified.startswith("<html")
+            or simplified.startswith("<body")
+            or "<html" in simplified
+            or "<body" in simplified
+        )
+
+
+class GeminiProvider(Provider):
+    """Google Gemini provider implementation."""
+
+    async def extract(self, page_text: str) -> str:
+        response = await self._make_request(
+            method="post",
+            url=(
+                f"https://generativelanguage.googleapis.com/v1beta/models/"
+                f"{self._model_name}:generateContent?key={self._api_key}"
+            ),
+            headers={"Content-Type": "application/json"},
+            data={
+                "contents": [
+                    {
+                        "role": "user",
+                        "parts": [
+                            {
+                                "text": (
+                                    f"Instructions: {self._prompt}\n\n"
+                                    f"Web page content:\n{page_text}"
+                                )
+                            }
+                        ],
+                    }
+                ],
+                "generationConfig": {
+                    "maxOutputTokens": 1024,
+                    "temperature": 0,
+                    "topP": 1,
+                },
+            },
+        )
+
+        if isinstance(response, dict):
+            candidates = response.get("candidates", [])
+            if not candidates or not isinstance(candidates, list):
+                raise IntegrationBlueprintApiClientError(
+                    "Provider response did not contain any choices."
+                )
+
+            candidate = candidates[0]
+            content = candidate.get("content") if isinstance(candidate, dict) else None
+            if isinstance(content, dict):
+                parts = content.get("parts", [])
+                if parts and isinstance(parts[0], dict):
+                    content = parts[0].get("text", "")
+                else:
+                    content = ""
+
+            if not isinstance(content, str):
+                content = str(content or "")
+
+            if not content.strip():
+                raise IntegrationBlueprintApiClientError(
+                    "Provider returned an empty completion result."
+                )
+            if self._looks_like_html(content):
+                raise IntegrationBlueprintApiClientError(
+                    "Provider returned HTML instead of extracted text."
+                )
+            return content.strip()
+
+        extracted = str(response).strip()
+        if self._looks_like_html(extracted):
+            raise IntegrationBlueprintApiClientError(
+                "Provider returned HTML instead of extracted text."
+            )
+        if not extracted:
+            raise IntegrationBlueprintApiClientError(
+                "Provider returned an empty response."
+            )
+        return extracted
+
+    def _looks_like_html(self, text: str) -> bool:
+        simplified = text.strip().lower()
+        return (
+            simplified.startswith("<!doctype html")
+            or simplified.startswith("<html")
+            or simplified.startswith("<body")
+            or "<html" in simplified
+            or "<body" in simplified
+        )
+
+
 class IntegrationBlueprintApiClientError(Exception):
     """Exception to indicate a general API error."""
 
@@ -217,147 +413,25 @@ class IntegrationBlueprintApiClient:
 
         raise IntegrationBlueprintApiClientError("Unable to fetch rendered page content")
 
+    def _get_provider(self) -> Provider:
+        if self._provider_type == PROVIDER_TYPE_GEMINI:
+            return GeminiProvider(
+                api_key=self._api_key,
+                model_name=self._model_name,
+                prompt=self._prompt,
+                request_func=self._api_wrapper,
+            )
+        return OpenAIProvider(
+            api_key=self._api_key,
+            model_name=self._model_name,
+            prompt=self._prompt,
+            request_func=self._api_wrapper,
+        )
+
     async def _provider_extract(self, page_text: str) -> str:
         """Use the configured provider to extract the prompt result from the page text."""
-        if self._provider_type == PROVIDER_TYPE_GEMINI:
-            return await self._gemini_provider_extract(page_text)
-
-        response = await self._api_wrapper(
-            method="post",
-            url="https://api.openai.com/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {self._api_key}",
-                "Content-Type": "application/json",
-            },
-            data={
-                "model": self._model_name,
-                "temperature": 0,
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": (
-                            "You are a helpful assistant that extracts relevant information "
-                            "from a web page based on the user prompt. Return only the "
-                            "requested output without additional commentary."
-                        ),
-                    },
-                    {
-                        "role": "user",
-                        "content": (
-                            f"Instructions: {self._prompt}\n\n"
-                            f"Web page content:\n{page_text}"
-                        ),
-                    },
-                ],
-            },
-        )
-
-        if isinstance(response, dict):
-            choices = response.get("choices", [])
-            if not choices:
-                raise IntegrationBlueprintApiClientError(
-                    "Provider response did not contain any choices."
-                )
-
-            choice = choices[0]
-            if "message" in choice and isinstance(choice["message"], dict):
-                content = choice["message"].get("content", "") or ""
-            else:
-                content = choice.get("text", "") or ""
-
-            if not content.strip():
-                raise IntegrationBlueprintApiClientError(
-                    "Provider returned an empty completion result."
-                )
-            if self._looks_like_html(content):
-                raise IntegrationBlueprintApiClientError(
-                    "Provider returned HTML instead of extracted text."
-                )
-            return content.strip()
-
-        extracted = str(response).strip()
-        if self._looks_like_html(extracted):
-            raise IntegrationBlueprintApiClientError(
-                "Provider returned HTML instead of extracted text."
-            )
-        if not extracted:
-            raise IntegrationBlueprintApiClientError(
-                "Provider returned an empty response."
-            )
-        return extracted
-
-    async def _gemini_provider_extract(self, page_text: str) -> str:
-        """Use a Google Gemini provider to extract the prompt result."""
-        response = await self._api_wrapper(
-            method="post",
-            url=(
-                f"https://generativelanguage.googleapis.com/v1beta/models/"
-                f"{self._model_name}:generateContent?key={self._api_key}"
-            ),
-            headers={
-                "Content-Type": "application/json",
-            },
-            data={
-                "contents": [
-                    {
-                        "role": "user",
-                        "parts": [
-                            {
-                                "text": (
-                                    f"Instructions: {self._prompt}\n\n"
-                                    f"Web page content:\n{page_text}"
-                                )
-                            }
-                        ],
-                    }
-                ],
-                "generationConfig": {
-                    "maxOutputTokens": 1024,
-                    "temperature": 0,
-                    "topP": 1,
-                },
-            },
-        )
-
-        if isinstance(response, dict):
-            candidates = response.get("candidates", [])
-            if not candidates or not isinstance(candidates, list):
-                raise IntegrationBlueprintApiClientError(
-                    "Provider response did not contain any choices."
-                )
-
-            candidate = candidates[0]
-            content = candidate.get("content") if isinstance(candidate, dict) else None
-            if isinstance(content, dict):
-                parts = content.get("parts", [])
-                if parts and isinstance(parts[0], dict):
-                    content = parts[0].get("text", "")
-                else:
-                    content = ""
-
-            if not isinstance(content, str):
-                content = str(content or "")
-
-            if not content.strip():
-                raise IntegrationBlueprintApiClientError(
-                    "Provider returned an empty completion result."
-                )
-            if self._looks_like_html(content):
-                raise IntegrationBlueprintApiClientError(
-                    "Provider returned HTML instead of extracted text."
-                )
-            return content.strip()
-
-        extracted = str(response).strip()
-        if self._looks_like_html(extracted):
-            raise IntegrationBlueprintApiClientError(
-                "Provider returned HTML instead of extracted text."
-            )
-        if not extracted:
-            raise IntegrationBlueprintApiClientError(
-                "Provider returned an empty response."
-            )
-        return extracted
+        provider = self._get_provider()
+        return await provider.extract(page_text)
 
     def _looks_like_html(self, text: str) -> bool:
         """Detect whether a plain string looks like raw HTML."""
