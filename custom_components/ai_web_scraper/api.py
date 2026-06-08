@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 import socket
 from datetime import UTC, datetime
@@ -9,6 +10,8 @@ from typing import Any
 
 import aiohttp
 import async_timeout
+
+HTTP_STATUS_NOT_FOUND = 404
 
 
 class IntegrationBlueprintApiClientError(Exception):
@@ -119,26 +122,42 @@ class IntegrationBlueprintApiClient:
 
     async def _fetch_page_text(self, url: str) -> str:
         """Fetch a page and return its text content."""
-        try:
-            async with async_timeout.timeout(10):
-                response = await self._session.get(
-                    url,
-                    headers={
-                        "Accept": "text/html",
-                        "User-Agent": "Mozilla/5.0 (HomeAssistant) ai_web_scraper",
-                    },
-                )
-                await _verify_response_or_raise(response)
-                return await response.text()
-        except TimeoutError as exception:
-            msg = f"Timeout error fetching page content - {exception}"
-            raise IntegrationBlueprintApiClientCommunicationError(msg) from exception
-        except (aiohttp.ClientError, socket.gaierror) as exception:
-            msg = f"Error fetching page content - {exception}"
-            raise IntegrationBlueprintApiClientCommunicationError(msg) from exception
-        except Exception as exception:  # pylint: disable=broad-except
-            msg = f"Something really wrong happened! - {exception}"
-            raise IntegrationBlueprintApiClientError(msg) from exception
+        for attempt in range(2):
+            try:
+                async with async_timeout.timeout(10):
+                    response = await self._session.get(
+                        url,
+                        headers={
+                            "Accept": "text/html",
+                            "User-Agent": "Mozilla/5.0 (HomeAssistant) ai_web_scraper",
+                        },
+                    )
+                    await _verify_response_or_raise(response)
+                    return await response.text()
+            except aiohttp.ServerDisconnectedError as exception:
+                if attempt == 0:
+                    await asyncio.sleep(1)
+                    continue
+                msg = f"Error fetching page content - {exception}"
+                raise (
+                    IntegrationBlueprintApiClientCommunicationError(msg)
+                ) from exception
+            except TimeoutError as exception:
+                msg = f"Timeout error fetching page content - {exception}"
+                raise (
+                    IntegrationBlueprintApiClientCommunicationError(msg)
+                ) from exception
+            except (aiohttp.ClientError, socket.gaierror) as exception:
+                msg = f"Error fetching page content - {exception}"
+                raise (
+                    IntegrationBlueprintApiClientCommunicationError(msg)
+                ) from exception
+            except Exception as exception:  # pylint: disable=broad-except
+                msg = f"Something really wrong happened! - {exception}"
+                raise IntegrationBlueprintApiClientError(msg) from exception
+
+        error_message = "Unable to fetch page content"
+        raise IntegrationBlueprintApiClientError(error_message)
 
     async def _api_wrapper(
         self,
@@ -168,6 +187,18 @@ class IntegrationBlueprintApiClient:
         except TimeoutError as exception:
             msg = f"Timeout error fetching information - {exception}"
             raise IntegrationBlueprintApiClientCommunicationError(msg) from exception
+        except aiohttp.ClientResponseError as exception:
+            if exception.status == HTTP_STATUS_NOT_FOUND:
+                msg = (
+                    "Browserless API returned 404 Not Found. "
+                    "Check your configured browserless_url and the service path."
+                )
+            else:
+                msg = (
+                    "Error fetching information - "
+                    f"{exception.status} {exception.message}"
+                )
+            raise (IntegrationBlueprintApiClientCommunicationError(msg)) from exception
         except (aiohttp.ClientError, socket.gaierror) as exception:
             msg = f"Error fetching information - {exception}"
             raise IntegrationBlueprintApiClientCommunicationError(msg) from exception
