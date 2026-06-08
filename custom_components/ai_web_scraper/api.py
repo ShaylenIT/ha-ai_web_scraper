@@ -179,6 +179,18 @@ class IntegrationBlueprintApiClient:
             except TimeoutError as exception:
                 msg = f"Timeout error fetching rendered page content - {exception}"
                 raise IntegrationBlueprintApiClientCommunicationError(msg) from exception
+            except aiohttp.ClientResponseError as exception:
+                if exception.status == HTTP_STATUS_NOT_FOUND:
+                    msg = (
+                        "Browserless content endpoint returned 404 Not Found. "
+                        "Verify your browserless_url and ensure the service path is /content."
+                    )
+                else:
+                    msg = (
+                        "Error fetching rendered page content - "
+                        f"{exception.status} {exception.message}"
+                    )
+                raise IntegrationBlueprintApiClientCommunicationError(msg) from exception
             except (aiohttp.ClientError, socket.gaierror) as exception:
                 msg = f"Error fetching rendered page content - {exception}"
                 raise IntegrationBlueprintApiClientCommunicationError(msg) from exception
@@ -273,8 +285,13 @@ class IntegrationBlueprintApiClient:
                 "WebSocket browserless URLs are not supported by this integration. "
                 "Use the HTTP browserless addon endpoint instead."
             )
-        if parsed_url.path in (None, "", "/"):
-            parsed_url = parsed_url._replace(path="/content")
+
+        path = parsed_url.path or ""
+        if path.endswith("/") and path != "/":
+            path = path.rstrip("/")
+        if path in (None, "", "/"):
+            path = "/content"
+        parsed_url = parsed_url._replace(path=path)
         return urlunparse(parsed_url)
 
     async def _api_wrapper(

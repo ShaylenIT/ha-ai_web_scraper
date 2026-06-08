@@ -438,6 +438,51 @@ async def test_client_uses_browserless_content_endpoint_when_base_url_passed() -
     )
 
 
+async def test_client_uses_browserless_content_endpoint_when_content_path_has_trailing_slash() -> None:
+    """Test browserless addon URL normalization for /content/ path trailing slash."""
+    page_response = AsyncMock()
+    page_response.status = 200
+    page_response.text = AsyncMock(return_value="<html>ok</html>")
+    page_response.raise_for_status = AsyncMock()
+
+    provider_response = AsyncMock()
+    provider_response.status = 200
+    provider_response.headers = {"Content-Type": "application/json"}
+    provider_response.json = AsyncMock(return_value={
+        "choices": [
+            {"message": {"content": "Rendered extracted output"}}
+        ]
+    })
+    provider_response.raise_for_status = AsyncMock()
+
+    session = AsyncMock()
+    session.get.return_value.__aenter__.return_value = page_response
+    session.request.return_value.__aenter__.return_value = provider_response
+
+    client = IntegrationBlueprintApiClient(
+        provider_name="provider",
+        api_key="key",
+        model_name="gpt-4",
+        browserless_url="http://browserless:3000/content/",
+        scraper_name="Test Scraper",
+        url="https://example.com",
+        prompt="Extract text",
+        extraction_mode="dom",
+        session=session,
+    )
+
+    data = await client.async_get_data()
+
+    assert data["state"] == "Rendered extracted output"
+    session.get.assert_awaited_once_with(
+        "http://browserless:3000/content?url=https://example.com",
+        headers={
+            "Accept": "text/html",
+            "User-Agent": "Mozilla/5.0 (HomeAssistant) ai_web_scraper",
+        },
+    )
+
+
 async def test_setup_entry_zero_interval_is_manual_only(
     hass: HomeAssistant,
     monkeypatch: Any,
