@@ -268,6 +268,11 @@ class IntegrationBlueprintApiClient:
         self._extraction_mode = extraction_mode
         self._session = session
         self._missing_provider = not bool(self._provider_name and self._api_key)
+        self._scraper_status = "idle"
+
+    def _set_scraper_status(self, status: str) -> None:
+        """Update the current scraper status."""
+        self._scraper_status = status
 
     async def async_get_data(self) -> dict[str, Any]:
         """
@@ -284,8 +289,15 @@ class IntegrationBlueprintApiClient:
             raise IntegrationBlueprintApiClientError(msg)
 
         start = datetime.now(tz=UTC)
+        if self._browserless_url:
+            self._set_scraper_status("rendering_page")
+        else:
+            self._set_scraper_status("fetching_page")
+
         page_text = await self._get_page_text(self._url)
+        self._set_scraper_status("waiting_for_ai")
         state = await self._provider_extract(page_text)
+        self._set_scraper_status("processing_ai_response")
         duration = (datetime.now(tz=UTC) - start).total_seconds()
 
         attributes = {
@@ -295,11 +307,15 @@ class IntegrationBlueprintApiClient:
             "extraction_mode": self._extraction_mode,
             "scrape_duration_seconds": duration,
             "last_successful_scrape": datetime.now(tz=UTC).isoformat(),
+            "scraper_status": self._scraper_status,
         }
 
         if isinstance(state, str) and len(state) > 255:
             attributes["full_text"] = state
             state = state[:252] + "..."
+
+        self._set_scraper_status("completed")
+        attributes["scraper_status"] = self._scraper_status
 
         return {
             "state": state,

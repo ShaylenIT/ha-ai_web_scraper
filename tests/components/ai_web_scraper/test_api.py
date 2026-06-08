@@ -49,6 +49,7 @@ def test_gemini_provider_extract_uses_gemini_generate_endpoint() -> None:
     client._api_wrapper.assert_awaited_once()
     assert "generativelanguage.googleapis.com" in client._api_wrapper.call_args.kwargs["url"]
     assert result["state"] == "Extracted result"
+    assert result["attributes"]["scraper_status"] == "completed"
 
 
 def test_provider_factory_selects_openai_by_default() -> None:
@@ -94,17 +95,42 @@ def test_gemini_provider_extract_raises_for_empty_candidate() -> None:
 
 
 def test_api_wrapper_rate_limit_error_message() -> None:
-    session = AsyncMock()
-    response = AsyncMock()
-    response.status = 429
-    response.headers = {"Content-Type": "application/json"}
-    response.raise_for_status.side_effect = aiohttp.ClientResponseError(
-        request_info=None,
-        history=(),
-        status=429,
-        message="Too Many Requests",
-    )
-    session.request.return_value.__aenter__.return_value = response
+    class FakeResponse:
+        def __init__(self) -> None:
+            self.status = 429
+            self.headers = {"Content-Type": "application/json"}
+            self.raise_for_status = AsyncMock(
+                side_effect=aiohttp.ClientResponseError(
+                    request_info=None,
+                    history=(),
+                    status=429,
+                    message="Too Many Requests",
+                )
+            )
+
+        async def json(self) -> dict[str, str]:
+            return {}
+
+        async def text(self) -> str:
+            return ""
+
+    response = FakeResponse()
+
+    class FakeRequestContext:
+        def __init__(self, response: FakeResponse) -> None:
+            self._response = response
+
+        async def __aenter__(self) -> FakeResponse:
+            return self._response
+
+        async def __aexit__(self, exc_type, exc, tb) -> bool:  # type: ignore[override]
+            return False
+
+    class FakeSession:
+        async def request(self, method: str, url: str, headers: dict | None = None, json: dict | None = None) -> FakeResponse:
+            return response
+
+    session = FakeSession()
 
     client = IntegrationBlueprintApiClient(
         provider_name="Test Provider",

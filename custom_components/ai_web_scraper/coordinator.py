@@ -45,6 +45,7 @@ class AIWebScraperDataUpdateCoordinator(DataUpdateCoordinator):
                     ),
                     "scrape_duration_seconds": 0,
                     "last_successful_scrape": None,
+                    "scraper_status": "failed",
                 },
                 "error_message": str(exception),
                 "last_attempt_status": "failure",
