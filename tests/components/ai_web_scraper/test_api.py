@@ -154,3 +154,23 @@ def test_api_wrapper_rate_limit_error_message() -> None:
         assert False, "Expected IntegrationBlueprintApiClientCommunicationError"
     except IntegrationBlueprintApiClientCommunicationError as exception:
         assert "Provider rate limit exceeded" in str(exception)
+
+
+def test_normalize_page_text_removes_html_tags() -> None:
+    client = IntegrationBlueprintApiClient(
+        provider_name="Test Provider",
+        api_key="test-key",
+        model_name="gpt-4",
+        browserless_url="",
+        scraper_name="Test Scraper",
+        url="https://example.com",
+        prompt="Extract text",
+        extraction_mode="dom",
+        session=DummySession(),
+    )
+
+    normalized = client._normalize_page_text(
+        "<html><head><style>.hidden{}</style></head><body><h1>Hello</h1><p>World</p></body></html>"
+    )
+
+    assert normalized == "Hello World"

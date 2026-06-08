@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import html
 import inspect
+import re
 import socket
 from datetime import UTC, datetime
 from typing import Any
@@ -77,7 +79,9 @@ class OpenAIProvider(Provider):
                         "role": "user",
                         "content": (
                             f"Instructions: {self._prompt}\n\n"
-                            f"Web page content:\n{page_text}"
+                            f"Web page content:\n{page_text}\n\n"
+                            "Only return the requested extracted content. "
+                            "Do not return HTML tags or page markup."
                         ),
                     },
                 ],
@@ -148,7 +152,9 @@ class GeminiProvider(Provider):
                             {
                                 "text": (
                                     f"Instructions: {self._prompt}\n\n"
-                                    f"Web page content:\n{page_text}"
+                                    f"Web page content:\n{page_text}\n\n"
+                                    "Only return the requested extracted content. "
+                                    "Do not return HTML tags or page markup."
                                 )
                             }
                         ],
@@ -295,6 +301,7 @@ class IntegrationBlueprintApiClient:
             self._set_scraper_status("fetching_page")
 
         page_text = await self._get_page_text(self._url)
+        page_text = self._normalize_page_text(page_text)
         self._set_scraper_status("waiting_for_ai")
         state = await self._provider_extract(page_text)
         self._set_scraper_status("processing_ai_response")
@@ -472,6 +479,17 @@ class IntegrationBlueprintApiClient:
             or "<html" in simplified
             or "<body" in simplified
         )
+
+    def _normalize_page_text(self, page_text: str) -> str:
+        """Normalize page text before sending it to the AI provider."""
+        if not isinstance(page_text, str):
+            return ""
+
+        text = re.sub(r"(?is)<script.*?>.*?</script>", " ", page_text)
+        text = re.sub(r"(?is)<style.*?>.*?</style>", " ", text)
+        text = re.sub(r"<[^>]+>", " ", text)
+        text = html.unescape(text)
+        return " ".join(text.split())
 
     def _normalize_browserless_url(self, browserless_url: str) -> str:
         """Normalize the browserless addon URL for fetching rendered content."""
