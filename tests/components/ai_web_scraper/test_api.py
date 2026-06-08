@@ -3,10 +3,13 @@
 import asyncio
 from unittest.mock import AsyncMock
 
+import aiohttp
+
 from custom_components.ai_web_scraper.api import (
     GeminiProvider,
     IntegrationBlueprintApiClient,
     IntegrationBlueprintApiClientError,
+    IntegrationBlueprintApiClientCommunicationError,
     OpenAIProvider,
 )
 from custom_components.ai_web_scraper.const import (
@@ -88,3 +91,40 @@ def test_gemini_provider_extract_raises_for_empty_candidate() -> None:
         assert False, "Expected IntegrationBlueprintApiClientError"
     except IntegrationBlueprintApiClientError:
         pass
+
+
+def test_api_wrapper_rate_limit_error_message() -> None:
+    session = AsyncMock()
+    response = AsyncMock()
+    response.status = 429
+    response.headers = {"Content-Type": "application/json"}
+    response.raise_for_status.side_effect = aiohttp.ClientResponseError(
+        request_info=None,
+        history=(),
+        status=429,
+        message="Too Many Requests",
+    )
+    session.request.return_value.__aenter__.return_value = response
+
+    client = IntegrationBlueprintApiClient(
+        provider_name="Test Provider",
+        api_key="test-key",
+        model_name="gpt-4",
+        browserless_url="",
+        scraper_name="Test Scraper",
+        url="https://example.com",
+        prompt="Extract text",
+        extraction_mode="dom",
+        session=session,
+    )
+
+    try:
+        asyncio.run(client._api_wrapper(
+            method="post",
+            url="https://api.example.com",
+            data={},
+            headers={},
+        ))
+        assert False, "Expected IntegrationBlueprintApiClientCommunicationError"
+    except IntegrationBlueprintApiClientCommunicationError as exception:
+        assert "Provider rate limit exceeded" in str(exception)

@@ -508,12 +508,17 @@ class IntegrationBlueprintApiClient:
                     "Browserless API returned 404 Not Found. "
                     "Check your configured browserless_url and the service path."
                 )
+            elif exception.status == 429:
+                msg = (
+                    "Provider rate limit exceeded (429 Too Many Requests). "
+                    "Reduce scrape frequency, check provider quota, or use a different API key."
+                )
             else:
                 msg = (
                     "Error fetching information - "
                     f"{exception.status} {exception.message}"
                 )
-            raise (IntegrationBlueprintApiClientCommunicationError(msg)) from exception
+            raise IntegrationBlueprintApiClientCommunicationError(msg) from exception
         except (aiohttp.ClientError, socket.gaierror) as exception:
             msg = f"Error fetching information - {exception}"
             raise IntegrationBlueprintApiClientCommunicationError(msg) from exception
