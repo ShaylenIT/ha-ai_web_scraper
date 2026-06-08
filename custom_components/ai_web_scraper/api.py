@@ -7,6 +7,7 @@ import inspect
 import socket
 from datetime import UTC, datetime
 from typing import Any
+from urllib.parse import urlparse, urlunparse
 
 import aiohttp
 import async_timeout
@@ -84,15 +85,12 @@ class IntegrationBlueprintApiClient:
 
         start = datetime.now(tz=UTC)
         if self._browserless_url:
+            browserless_url = self._normalize_browserless_url(self._browserless_url)
             raw = await self._api_wrapper(
                 method="post",
-                url=self._browserless_url,
-                data={
-                    "url": self._url,
-                    "prompt": self._prompt,
-                    "provider_name": self._provider_name,
-                    "extraction_mode": self._extraction_mode,
-                },
+                url=browserless_url,
+                headers={"Content-Type": "application/json"},
+                data={"url": self._url},
             )
             if isinstance(raw, str):
                 state = raw
@@ -159,6 +157,18 @@ class IntegrationBlueprintApiClient:
         error_message = "Unable to fetch page content"
         raise IntegrationBlueprintApiClientError(error_message)
 
+    def _normalize_browserless_url(self, browserless_url: str) -> str:
+        """Normalize the browserless addon URL for fetching rendered content."""
+        parsed_url = urlparse(browserless_url)
+        if parsed_url.scheme in ("ws", "wss"):
+            raise IntegrationBlueprintApiClientError(
+                "WebSocket browserless URLs are not supported by this integration. "
+                "Use the HTTP browserless addon endpoint instead."
+            )
+        if parsed_url.path in (None, "", "/"):
+            parsed_url = parsed_url._replace(path="/content")
+        return urlunparse(parsed_url)
+
     async def _api_wrapper(
         self,
         method: str,
@@ -181,7 +191,7 @@ class IntegrationBlueprintApiClient:
                     return await response.json()
                 try:
                     return await response.json()
-                except aiohttp.ContentTypeError, ValueError:
+                except (aiohttp.ContentTypeError, ValueError):
                     return await response.text()
 
         except TimeoutError as exception:

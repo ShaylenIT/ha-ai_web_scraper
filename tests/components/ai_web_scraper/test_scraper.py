@@ -323,6 +323,41 @@ async def test_client_fetches_page_text_when_no_browserless_url() -> None:
     )
 
 
+async def test_client_uses_browserless_content_endpoint_when_base_url_passed() -> None:
+    """Test browserless addon URL normalization to the /content path."""
+    response = AsyncMock()
+    response.status = 200
+    response.text = AsyncMock(return_value="<html>ok</html>")
+    response.json = AsyncMock(side_effect=ValueError("not json"))
+    response.headers = {"Content-Type": "text/html"}
+    response.raise_for_status = AsyncMock()
+
+    session = AsyncMock()
+    session.request.return_value = response
+
+    client = IntegrationBlueprintApiClient(
+        provider_name="provider",
+        api_key="key",
+        model_name="gpt-4",
+        browserless_url="http://browserless:3000",
+        scraper_name="Test Scraper",
+        url="https://example.com",
+        prompt="Extract text",
+        extraction_mode="dom",
+        session=session,
+    )
+
+    data = await client.async_get_data()
+
+    assert data["state"] == "<html>ok</html>"
+    session.request.assert_awaited_once_with(
+        method="post",
+        url="http://browserless:3000/content",
+        headers={"Content-Type": "application/json"},
+        json={"url": "https://example.com"},
+    )
+
+
 async def test_setup_entry_zero_interval_is_manual_only(
     hass: HomeAssistant,
     monkeypatch: Any,
