@@ -13,6 +13,7 @@ from homeassistant.components.sensor import SensorEntityDescription
 from homeassistant.config_entries import ConfigEntry
 
 from custom_components.ai_web_scraper import __init__ as integration_init
+from aiohttp.client_exceptions import ClientConnectorError
 from custom_components.ai_web_scraper.api import (
     IntegrationBlueprintApiClient,
     IntegrationBlueprintApiClientError,
@@ -382,7 +383,7 @@ async def test_client_uses_browserless_content_endpoint_when_base_url_passed() -
     provider_response.raise_for_status = AsyncMock()
 
     session = AsyncMock()
-    session.get.return_value.__aenter__.return_value = page_response
+    session.post.return_value.__aenter__.return_value = page_response
     session.request.return_value.__aenter__.return_value = provider_response
 
     client = IntegrationBlueprintApiClient(
@@ -400,8 +401,9 @@ async def test_client_uses_browserless_content_endpoint_when_base_url_passed() -
     data = await client.async_get_data()
 
     assert data["state"] == "Rendered extracted output"
-    session.get.assert_awaited_once_with(
-        "http://browserless:3000/content?url=https://example.com",
+    session.post.assert_awaited_once_with(
+        "http://browserless:3000/content",
+        json={"url": "https://example.com"},
         headers={
             "Accept": "text/html",
             "User-Agent": "Mozilla/5.0 (HomeAssistant) ai_web_scraper",
@@ -456,7 +458,7 @@ async def test_client_uses_browserless_content_endpoint_when_content_path_has_tr
     provider_response.raise_for_status = AsyncMock()
 
     session = AsyncMock()
-    session.get.return_value.__aenter__.return_value = page_response
+    session.post.return_value.__aenter__.return_value = page_response
     session.request.return_value.__aenter__.return_value = provider_response
 
     client = IntegrationBlueprintApiClient(
@@ -474,13 +476,41 @@ async def test_client_uses_browserless_content_endpoint_when_content_path_has_tr
     data = await client.async_get_data()
 
     assert data["state"] == "Rendered extracted output"
-    session.get.assert_awaited_once_with(
-        "http://browserless:3000/content?url=https://example.com",
+    session.post.assert_awaited_once_with(
+        "http://browserless:3000/content",
+        json={"url": "https://example.com"},
         headers={
             "Accept": "text/html",
             "User-Agent": "Mozilla/5.0 (HomeAssistant) ai_web_scraper",
         },
     )
+
+
+async def test_client_raises_clear_message_when_browserless_host_dns_fails() -> None:
+    """Test browserless DNS failures produce a helpful error message."""
+    session = AsyncMock()
+    session.get.side_effect = ClientConnectorError(
+        None,
+        socket.gaierror(12, "Timeout while contacting DNS servers"),
+    )
+
+    client = IntegrationBlueprintApiClient(
+        provider_name="provider",
+        api_key="key",
+        model_name="gpt-4",
+        browserless_url="http://browserless:3000",
+        scraper_name="Test Scraper",
+        url="https://example.com",
+        prompt="Extract text",
+        extraction_mode="dom",
+        session=session,
+    )
+
+    with pytest.raises(
+        IntegrationBlueprintApiClientCommunicationError,
+        match="DNS lookup failed for the browserless host",
+    ):
+        await client._fetch_browserless_page_text("https://example.com")
 
 
 async def test_setup_entry_zero_interval_is_manual_only(

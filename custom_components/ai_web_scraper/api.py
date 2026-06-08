@@ -154,15 +154,14 @@ class IntegrationBlueprintApiClient:
         """Fetch rendered page content via browserless."""
         browserless_url = self._normalize_browserless_url(self._browserless_url)
         parsed_url = urlparse(browserless_url)
-        query = parse_qs(parsed_url.query)
-        query["url"] = [url]
-        parsed_url = parsed_url._replace(query=urlencode(query, doseq=True))
+        parsed_url = parsed_url._replace(query=urlencode(parse_qs(parsed_url.query), doseq=True))
 
         for attempt in range(2):
             try:
                 async with async_timeout.timeout(30):
-                    response = await self._session.get(
+                    response = await self._session.post(
                         urlunparse(parsed_url),
+                        json={"url": url},
                         headers={
                             "Accept": "text/html",
                             "User-Agent": "Mozilla/5.0 (HomeAssistant) ai_web_scraper",
@@ -191,6 +190,18 @@ class IntegrationBlueprintApiClient:
                     msg = (
                         "Error fetching rendered page content - "
                         f"{exception.status} {exception.message}"
+                    )
+                raise IntegrationBlueprintApiClientCommunicationError(msg) from exception
+            except aiohttp.ClientConnectorError as exception:
+                if isinstance(exception.os_error, socket.gaierror):
+                    msg = (
+                        "DNS lookup failed for the browserless host. "
+                        "Verify your browserless_url host is resolvable from Home Assistant."
+                    )
+                else:
+                    msg = (
+                        "Error connecting to the browserless host. "
+                        "Verify your browserless_url is correct and reachable from Home Assistant."
                     )
                 raise IntegrationBlueprintApiClientCommunicationError(msg) from exception
             except (aiohttp.ClientError, socket.gaierror) as exception:
