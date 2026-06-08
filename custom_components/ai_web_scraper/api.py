@@ -295,10 +295,6 @@ class IntegrationBlueprintApiClient:
             raise IntegrationBlueprintApiClientError(msg)
 
         start = datetime.now(tz=UTC)
-        if self._browserless_url:
-            self._set_scraper_status("rendering_page")
-        else:
-            self._set_scraper_status("fetching_page")
 
         page_text = await self._get_page_text(self._url)
         page_text = self._normalize_page_text(page_text)
@@ -332,10 +328,22 @@ class IntegrationBlueprintApiClient:
         }
 
     async def _get_page_text(self, url: str) -> str:
-        """Fetch page text from the target URL or browserless endpoint."""
-        if self._browserless_url:
+        """Fetch page text based on the configured extraction mode."""
+        if self._extraction_mode == "vision":
+            if not self._browserless_url:
+                raise IntegrationBlueprintApiClientError(
+                    "Vision extraction requires a configured browserless_url on the provider."
+                )
+            self._set_scraper_status("rendering_page")
             return await self._fetch_browserless_page_text(url)
-        return await self._fetch_page_text(url)
+
+        if self._extraction_mode == "dom":
+            self._set_scraper_status("fetching_page")
+            return await self._fetch_page_text(url)
+
+        raise IntegrationBlueprintApiClientError(
+            f"Unsupported extraction mode '{self._extraction_mode}'."
+        )
 
     async def _fetch_page_text(self, url: str) -> str:
         """Fetch a page and return its text content."""

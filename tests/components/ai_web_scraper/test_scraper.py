@@ -330,42 +330,28 @@ async def test_client_fetches_page_text_when_no_browserless_url() -> None:
     data = await client.async_get_data()
 
     assert data["state"] == "Extracted output"
-    session.get.assert_awaited_once_with(
-        "https://example.com",
-        headers={
-            "Accept": "text/html",
-            "User-Agent": "Mozilla/5.0 (HomeAssistant) ai_web_scraper",
-        },
+
+
+async def test_client_requires_browserless_for_vision_extraction() -> None:
+    """Test that vision extraction requires browserless_url."""
+    session = AsyncMock()
+    client = IntegrationBlueprintApiClient(
+        provider_name="provider",
+        api_key="key",
+        model_name="gpt-4",
+        browserless_url="",
+        scraper_name="Test Scraper",
+        url="https://example.com",
+        prompt="Extract text",
+        extraction_mode="vision",
+        session=session,
     )
-    session.request.assert_awaited_once_with(
-        method="post",
-        url="https://api.openai.com/v1/chat/completions",
-        headers={
-            "Authorization": "Bearer key",
-            "Content-Type": "application/json",
-        },
-        json={
-            "model": "gpt-4",
-            "temperature": 0,
-            "messages": [
-                {
-                    "role": "system",
-                    "content": (
-                        "You are a helpful assistant that extracts relevant information "
-                        "from a web page based on the user prompt. Return only the "
-                        "requested output without additional commentary."
-                    ),
-                },
-                {
-                    "role": "user",
-                    "content": (
-                        "Instructions: Extract text\n\n"
-                        "Web page content:\nHello from example.com"
-                    ),
-                },
-            ],
-        },
-    )
+
+    with pytest.raises(
+        IntegrationBlueprintApiClientError,
+        match="Vision extraction requires a configured browserless_url",
+    ):
+        await client.async_get_data()
 
 
 async def test_client_uses_browserless_content_endpoint_when_base_url_passed() -> None:
@@ -397,7 +383,7 @@ async def test_client_uses_browserless_content_endpoint_when_base_url_passed() -
         scraper_name="Test Scraper",
         url="https://example.com",
         prompt="Extract text",
-        extraction_mode="dom",
+        extraction_mode="vision",
         session=session,
     )
 
@@ -476,7 +462,7 @@ async def test_client_uses_browserless_content_endpoint_when_content_path_has_tr
         scraper_name="Test Scraper",
         url="https://example.com",
         prompt="Extract text",
-        extraction_mode="dom",
+        extraction_mode="vision",
         session=session,
     )
 

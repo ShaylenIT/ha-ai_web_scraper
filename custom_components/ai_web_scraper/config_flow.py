@@ -305,7 +305,8 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
                     for field in missing:
                         errors[field] = "required"
                 else:
-                    self._config_entry.async_update_entry(
+                    self.hass.config_entries.async_update_entry(
+                        self._config_entry,
                         data={
                             **self._config_entry.data,
                             CONF_PROVIDER_NAME: user_input[CONF_PROVIDER_NAME],
@@ -316,7 +317,7 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
                                 CONF_BROWSERLESS_URL,
                                 self._config_entry.data.get(CONF_BROWSERLESS_URL, ""),
                             ),
-                        }
+                        },
                     )
                     return self.async_create_entry(title="done", data={})
             except Exception as exception:  # pylint: disable=broad-except
@@ -399,7 +400,8 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
                 if not user_input.get(CONF_PROMPT):
                     errors[CONF_PROMPT] = "required"
                 if not errors:
-                    self._config_entry.async_update_entry(
+                    self.hass.config_entries.async_update_entry(
+                        self._config_entry,
                         data={
                             **self._config_entry.data,
                             CONF_SCRAPER_NAME: user_input[CONF_SCRAPER_NAME],
@@ -408,7 +410,7 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
                             CONF_PROMPT: user_input[CONF_PROMPT],
                             CONF_EXTRACTION_MODE: user_input[CONF_EXTRACTION_MODE],
                             CONF_INTERVAL_SECONDS: user_input[CONF_INTERVAL_SECONDS],
-                        }
+                        },
                     )
                     return self.async_create_entry(title="done", data={})
             except Exception as exception:  # pylint: disable=broad-except
