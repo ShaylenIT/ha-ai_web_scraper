@@ -47,6 +47,7 @@ After installing the integration and starting Home Assistant, configure the AI W
    - Model name
    - Optional browserless URL
      - Use the browserless add-on HTTP endpoint, for example `http://browserless:3000`
+     - If using the Home Assistant add-on, do not use `localhost` unless browserless is reachable from the Home Assistant instance.
      - Do not enter a WebSocket URL like `ws://...` or `wss://...`
 1. After the provider exists, choose **Add Scraper Entry** and configure:
    - Scraper name

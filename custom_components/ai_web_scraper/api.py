@@ -183,7 +183,9 @@ class IntegrationBlueprintApiClient:
                 if exception.status == HTTP_STATUS_NOT_FOUND:
                     msg = (
                         "Browserless content endpoint returned 404 Not Found. "
-                        "Verify your browserless_url and ensure the service path is /content."
+                        "Verify your browserless_url and ensure the service path is /content. "
+                        "If you are using the Home Assistant browserless add-on, use the add-on host "
+                        "instead of localhost (for example http://browserless:3000)."
                     )
                 else:
                     msg = (
