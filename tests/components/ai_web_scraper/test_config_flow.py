@@ -202,3 +202,63 @@ async def test_provider_reconfigure_updates_entry(hass: HomeAssistant) -> None:
     assert provider_entry.data[CONF_PROVIDER_NAME] == "Renamed Provider"
     assert provider_entry.data[CONF_API_KEY] == "updated-key"
     assert provider_entry.data[CONF_MODEL_NAME] == "gpt-4.1"
+
+
+async def test_scraper_reconfigure_updates_entry(hass: HomeAssistant) -> None:
+    """Test that scraper options flow updates scraper data."""
+    provider_entry = ConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Provider",
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_PROVIDER,
+            CONF_PROVIDER_NAME: "Test Provider",
+            CONF_API_KEY: "test-key",
+            CONF_MODEL_NAME: "gpt-4",
+        },
+        source=config_entries.SOURCE_USER,
+        options={},
+        entry_id="provider-entry-id",
+    )
+    provider_entry.add_to_hass(hass)
+
+    scraper_entry = ConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Scraper",
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_SCRAPER,
+            CONF_SCRAPER_NAME: "Test Scraper",
+            CONF_PROVIDER_ID: provider_entry.entry_id,
+            CONF_URL: "https://example.com",
+            CONF_PROMPT: "Extract text",
+            CONF_EXTRACTION_MODE: "dom",
+            CONF_INTERVAL_SECONDS: 30,
+        },
+        source=config_entries.SOURCE_USER,
+        options={},
+        entry_id="scraper-entry-id",
+    )
+    scraper_entry.add_to_hass(hass)
+
+    result = await hass.config_entries.options.async_init(scraper_entry.entry_id)
+    assert result["type"] == RESULT_TYPE_FORM
+    assert result["step_id"] == "scraper"
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            CONF_SCRAPER_NAME: "Updated Scraper",
+            CONF_PROVIDER_ID: provider_entry.entry_id,
+            CONF_URL: "https://example.org",
+            CONF_PROMPT: "Update text",
+            CONF_EXTRACTION_MODE: "vision",
+            CONF_INTERVAL_SECONDS: 60,
+        },
+    )
+
+    assert result["type"] == RESULT_TYPE_CREATE_ENTRY
+    assert scraper_entry.data[CONF_SCRAPER_NAME] == "Updated Scraper"
+    assert scraper_entry.data[CONF_URL] == "https://example.org"
+    assert scraper_entry.data[CONF_EXTRACTION_MODE] == "vision"
+    assert scraper_entry.data[CONF_INTERVAL_SECONDS] == 60

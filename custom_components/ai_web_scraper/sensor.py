@@ -21,6 +21,11 @@ ENTITY_DESCRIPTIONS = (
         name="Scraper Data",
         icon="mdi:text-box",
     ),
+    SensorEntityDescription(
+        key="ai_web_scraper_status",
+        name="Scraper Status",
+        icon="mdi:progress-clock",
+    ),
 )
 
 
@@ -53,6 +58,11 @@ class IntegrationBlueprintSensor(IntegrationBlueprintEntity, SensorEntity):
     @property
     def native_value(self) -> str | None:
         """Return the native value of the sensor."""
+        if self.entity_description.key == "ai_web_scraper_status":
+            return self.coordinator.data.get("attributes", {}).get(
+                "scraper_status", "unknown"
+            )
+
         state = self.coordinator.data.get("state")
         if (
             state is None

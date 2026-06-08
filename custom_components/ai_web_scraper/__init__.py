@@ -148,7 +148,13 @@ async def async_reload_provider_dependents(
     """Reload scraper entries that depend on an updated provider."""
     for scraper_entry in get_scraper_entries(hass):
         if scraper_entry.data.get(CONF_PROVIDER_ID) == entry.entry_id:
-            await hass.config_entries.async_reload(scraper_entry.entry_id)
+            try:
+                await hass.config_entries.async_reload(scraper_entry.entry_id)
+            except Exception:  # pylint: disable=broad-except
+                LOGGER.exception(
+                    "Failed reloading scraper entry %s after provider update",
+                    scraper_entry.entry_id,
+                )
 
 
 async def async_reload_entry(
@@ -156,4 +162,10 @@ async def async_reload_entry(
     entry: IntegrationBlueprintConfigEntry,
 ) -> None:
     """Reload config entry."""
-    await hass.config_entries.async_reload(entry.entry_id)
+    try:
+        await hass.config_entries.async_reload(entry.entry_id)
+    except Exception:  # pylint: disable=broad-except
+        LOGGER.exception(
+            "Failed reloading config entry %s after options update",
+            entry.entry_id,
+        )

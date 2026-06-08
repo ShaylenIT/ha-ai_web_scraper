@@ -25,6 +25,7 @@ from .const import (
     ENTRY_TYPE_PROVIDER,
     ENTRY_TYPE_SCRAPER,
     EXTRACTION_MODES,
+    LOGGER,
     PROVIDER_TYPE_OPENAI,
     PROVIDER_TYPES,
 )
@@ -289,33 +290,41 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            missing = [
-                field
-                for field in [
-                    CONF_PROVIDER_NAME,
-                    CONF_PROVIDER_TYPE,
-                    CONF_API_KEY,
-                    CONF_MODEL_NAME,
+            try:
+                missing = [
+                    field
+                    for field in [
+                        CONF_PROVIDER_NAME,
+                        CONF_PROVIDER_TYPE,
+                        CONF_API_KEY,
+                        CONF_MODEL_NAME,
+                    ]
+                    if not user_input.get(field)
                 ]
-                if not user_input.get(field)
-            ]
-            if missing:
-                for field in missing:
-                    errors[field] = "required"
-            else:
-                self._config_entry.async_update_entry(
-                    data={
-                        **self._config_entry.data,
-                        CONF_PROVIDER_NAME: user_input[CONF_PROVIDER_NAME],
-                        CONF_PROVIDER_TYPE: user_input[CONF_PROVIDER_TYPE],
-                        CONF_API_KEY: user_input[CONF_API_KEY],
-                        CONF_MODEL_NAME: user_input[CONF_MODEL_NAME],
-                        CONF_BROWSERLESS_URL: user_input.get(
-                            CONF_BROWSERLESS_URL, self._config_entry.data.get(CONF_BROWSERLESS_URL, "")
-                        ),
-                    }
+                if missing:
+                    for field in missing:
+                        errors[field] = "required"
+                else:
+                    self._config_entry.async_update_entry(
+                        data={
+                            **self._config_entry.data,
+                            CONF_PROVIDER_NAME: user_input[CONF_PROVIDER_NAME],
+                            CONF_PROVIDER_TYPE: user_input[CONF_PROVIDER_TYPE],
+                            CONF_API_KEY: user_input[CONF_API_KEY],
+                            CONF_MODEL_NAME: user_input[CONF_MODEL_NAME],
+                            CONF_BROWSERLESS_URL: user_input.get(
+                                CONF_BROWSERLESS_URL,
+                                self._config_entry.data.get(CONF_BROWSERLESS_URL, ""),
+                            ),
+                        }
+                    )
+                    return self.async_create_entry(title="done", data={})
+            except Exception as exception:  # pylint: disable=broad-except
+                LOGGER.exception(
+                    "Unexpected error updating provider options for %s",
+                    self._config_entry.entry_id,
                 )
-                return self.async_create_entry(title="done", data={})
+                errors["base"] = "unknown"
 
         schema = vol.Schema(
             {
@@ -378,29 +387,36 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
             errors["base"] = "no_providers"
 
         if user_input is not None:
-            if not provider_options:
-                errors["base"] = "no_providers"
-            if provider_options and not user_input.get(CONF_PROVIDER_ID):
-                errors[CONF_PROVIDER_ID] = "required"
-            if not user_input.get(CONF_SCRAPER_NAME):
-                errors[CONF_SCRAPER_NAME] = "required"
-            if not user_input.get(CONF_URL):
-                errors[CONF_URL] = "required"
-            if not user_input.get(CONF_PROMPT):
-                errors[CONF_PROMPT] = "required"
-            if not errors:
-                self._config_entry.async_update_entry(
-                    data={
-                        **self._config_entry.data,
-                        CONF_SCRAPER_NAME: user_input[CONF_SCRAPER_NAME],
-                        CONF_PROVIDER_ID: user_input[CONF_PROVIDER_ID],
-                        CONF_URL: user_input[CONF_URL],
-                        CONF_PROMPT: user_input[CONF_PROMPT],
-                        CONF_EXTRACTION_MODE: user_input[CONF_EXTRACTION_MODE],
-                        CONF_INTERVAL_SECONDS: user_input[CONF_INTERVAL_SECONDS],
-                    }
+            try:
+                if not provider_options:
+                    errors["base"] = "no_providers"
+                if provider_options and not user_input.get(CONF_PROVIDER_ID):
+                    errors[CONF_PROVIDER_ID] = "required"
+                if not user_input.get(CONF_SCRAPER_NAME):
+                    errors[CONF_SCRAPER_NAME] = "required"
+                if not user_input.get(CONF_URL):
+                    errors[CONF_URL] = "required"
+                if not user_input.get(CONF_PROMPT):
+                    errors[CONF_PROMPT] = "required"
+                if not errors:
+                    self._config_entry.async_update_entry(
+                        data={
+                            **self._config_entry.data,
+                            CONF_SCRAPER_NAME: user_input[CONF_SCRAPER_NAME],
+                            CONF_PROVIDER_ID: user_input[CONF_PROVIDER_ID],
+                            CONF_URL: user_input[CONF_URL],
+                            CONF_PROMPT: user_input[CONF_PROMPT],
+                            CONF_EXTRACTION_MODE: user_input[CONF_EXTRACTION_MODE],
+                            CONF_INTERVAL_SECONDS: user_input[CONF_INTERVAL_SECONDS],
+                        }
+                    )
+                    return self.async_create_entry(title="done", data={})
+            except Exception as exception:  # pylint: disable=broad-except
+                LOGGER.exception(
+                    "Unexpected error updating scraper options for %s",
+                    self._config_entry.entry_id,
                 )
-                return self.async_create_entry(title="done", data={})
+                errors["base"] = "unknown"
 
         schema_dict: dict[vol.Required, object] = {
             vol.Required(

@@ -24,6 +24,9 @@
         "sensor": {
             "ai_web_scraper_data": {
                 "name": "Scraper Data"
+            },
+            "ai_web_scraper_status": {
+                "name": "Scraper Status"
             }
         },
         "binary_sensor": {
