@@ -54,7 +54,7 @@ After installing the integration and starting Home Assistant, configure the AI W
    - URL to scrape
    - Prompt text
    - Provider selection
-   - Extraction mode (`DOM extraction` or `Vision extraction`)
+   - Extraction mode (`Text/HTML Based Extraction` or `Browser Based Extraction`)
    - Interval seconds (`0` means manual-only refresh)
 1. Once created, the integration exposes:
    - a data sensor for parsed scraper output

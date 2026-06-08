@@ -22,10 +22,10 @@ from .const import (
     CONF_EXTRACTION_MODE,
     CONF_INTERVAL_SECONDS,
     CONF_MODEL_NAME,
+    CONF_PROMPT,
     CONF_PROVIDER_ID,
     CONF_PROVIDER_NAME,
     CONF_PROVIDER_TYPE,
-    CONF_PROMPT,
     CONF_SCRAPER_NAME,
     CONF_URL,
     ENTRY_TYPE_PROVIDER,
@@ -150,7 +150,7 @@ async def async_reload_provider_dependents(
         if scraper_entry.data.get(CONF_PROVIDER_ID) == entry.entry_id:
             try:
                 await hass.config_entries.async_reload(scraper_entry.entry_id)
-            except Exception:  # pylint: disable=broad-except
+            except Exception:  # pylint: disable=broad-except  # noqa: BLE001
                 LOGGER.exception(
                     "Failed reloading scraper entry %s after provider update",
                     scraper_entry.entry_id,
@@ -164,7 +164,7 @@ async def async_reload_entry(
     """Reload config entry."""
     try:
         await hass.config_entries.async_reload(entry.entry_id)
-    except Exception:  # pylint: disable=broad-except
+    except Exception:  # pylint: disable=broad-except  # noqa: BLE001
         LOGGER.exception(
             "Failed reloading config entry %s after options update",
             entry.entry_id,

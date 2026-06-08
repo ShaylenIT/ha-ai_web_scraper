@@ -7,6 +7,7 @@ import html
 import inspect
 import re
 import socket
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
@@ -17,6 +18,10 @@ import async_timeout
 from .const import PROVIDER_TYPE_GEMINI, PROVIDER_TYPE_OPENAI
 
 HTTP_STATUS_NOT_FOUND = 404
+MAX_STATE_CHARS = 255
+RETRY_HTTP_5XX_LOWER = 500
+RETRY_HTTP_5XX_UPPER = 600
+RATE_LIMIT_STATUS = 429
 
 
 class Provider:
@@ -27,14 +32,16 @@ class Provider:
         api_key: str,
         model_name: str,
         prompt: str,
-        request_func,
+        request_func: Callable[..., Any],
     ) -> None:
+        """Initialize provider."""
         self._api_key = api_key
         self._model_name = model_name
         self._prompt = prompt
         self._request_func = request_func
 
     async def extract(self, page_text: str) -> str:
+        """Extract text from the provided page text (abstract)."""
         raise NotImplementedError
 
     async def _make_request(
@@ -56,6 +63,7 @@ class OpenAIProvider(Provider):
     """OpenAI provider implementation."""
 
     async def extract(self, page_text: str) -> str:
+        """Extract content using OpenAI."""
         response = await self._make_request(
             method="post",
             url="https://api.openai.com/v1/chat/completions",
@@ -70,9 +78,9 @@ class OpenAIProvider(Provider):
                     {
                         "role": "system",
                         "content": (
-                            "You are a helpful assistant that extracts relevant information "
-                            "from a web page based on the user prompt. Return only the "
-                            "requested output without additional commentary."
+                            "You are a helpful assistant that extracts relevant "
+                            "information from a web page. Return only the requested "
+                            "output without additional commentary."
                         ),
                     },
                     {
@@ -91,9 +99,8 @@ class OpenAIProvider(Provider):
         if isinstance(response, dict):
             choices = response.get("choices", [])
             if not choices:
-                raise IntegrationBlueprintApiClientError(
-                    "Provider response did not contain any choices."
-                )
+                msg = "Provider response did not contain any choices."
+                raise IntegrationBlueprintApiClientError(msg)
 
             choice = choices[0]
             if "message" in choice and isinstance(choice["message"], dict):
@@ -102,34 +109,26 @@ class OpenAIProvider(Provider):
                 content = choice.get("text", "") or ""
 
             if not content.strip():
-                raise IntegrationBlueprintApiClientError(
-                    "Provider returned an empty completion result."
-                )
+                msg = "Provider returned an empty completion result."
+                raise IntegrationBlueprintApiClientError(msg)
             if self._looks_like_html(content):
-                raise IntegrationBlueprintApiClientError(
-                    "Provider returned HTML instead of extracted text."
-                )
+                msg = "Provider returned HTML instead of extracted text."
+                raise IntegrationBlueprintApiClientError(msg)
             return content.strip()
 
         extracted = str(response).strip()
         if self._looks_like_html(extracted):
-            raise IntegrationBlueprintApiClientError(
-                "Provider returned HTML instead of extracted text."
-            )
+            msg = "Provider returned HTML instead of extracted text."
+            raise IntegrationBlueprintApiClientError(msg)
         if not extracted:
-            raise IntegrationBlueprintApiClientError(
-                "Provider returned an empty response."
-            )
+            msg = "Provider returned an empty response."
+            raise IntegrationBlueprintApiClientError(msg)
         return extracted
 
     def _looks_like_html(self, text: str) -> bool:
         simplified = text.strip().lower()
-        return (
-            simplified.startswith("<!doctype html")
-            or simplified.startswith("<html")
-            or simplified.startswith("<body")
-            or "<html" in simplified
-            or "<body" in simplified
+        return simplified.startswith(("<!doctype html", "<html", "<body")) or (
+            "<html" in simplified or "<body" in simplified
         )
 
 
@@ -137,6 +136,7 @@ class GeminiProvider(Provider):
     """Google Gemini provider implementation."""
 
     async def extract(self, page_text: str) -> str:
+        """Extract content using the Google Gemini API."""
         response = await self._make_request(
             method="post",
             url=(
@@ -171,9 +171,8 @@ class GeminiProvider(Provider):
         if isinstance(response, dict):
             candidates = response.get("candidates", [])
             if not candidates or not isinstance(candidates, list):
-                raise IntegrationBlueprintApiClientError(
-                    "Provider response did not contain any choices."
-                )
+                msg = "Provider response did not contain any choices."
+                raise IntegrationBlueprintApiClientError(msg)
 
             candidate = candidates[0]
             content = candidate.get("content") if isinstance(candidate, dict) else None
@@ -188,34 +187,26 @@ class GeminiProvider(Provider):
                 content = str(content or "")
 
             if not content.strip():
-                raise IntegrationBlueprintApiClientError(
-                    "Provider returned an empty completion result."
-                )
+                msg = "Provider returned an empty completion result."
+                raise IntegrationBlueprintApiClientError(msg)
             if self._looks_like_html(content):
-                raise IntegrationBlueprintApiClientError(
-                    "Provider returned HTML instead of extracted text."
-                )
+                msg = "Provider returned HTML instead of extracted text."
+                raise IntegrationBlueprintApiClientError(msg)
             return content.strip()
 
         extracted = str(response).strip()
         if self._looks_like_html(extracted):
-            raise IntegrationBlueprintApiClientError(
-                "Provider returned HTML instead of extracted text."
-            )
+            msg = "Provider returned HTML instead of extracted text."
+            raise IntegrationBlueprintApiClientError(msg)
         if not extracted:
-            raise IntegrationBlueprintApiClientError(
-                "Provider returned an empty response."
-            )
+            msg = "Provider returned an empty response."
+            raise IntegrationBlueprintApiClientError(msg)
         return extracted
 
     def _looks_like_html(self, text: str) -> bool:
         simplified = text.strip().lower()
-        return (
-            simplified.startswith("<!doctype html")
-            or simplified.startswith("<html")
-            or simplified.startswith("<body")
-            or "<html" in simplified
-            or "<body" in simplified
+        return simplified.startswith(("<!doctype html", "<html", "<body")) or (
+            "<html" in simplified or "<body" in simplified
         )
 
 
@@ -295,6 +286,10 @@ class IntegrationBlueprintApiClient:
             raise IntegrationBlueprintApiClientError(msg)
 
         start = datetime.now(tz=UTC)
+        if self._browserless_url:
+            self._set_scraper_status("rendering_page")
+        else:
+            self._set_scraper_status("fetching_page")
 
         page_text = await self._get_page_text(self._url)
         page_text = self._normalize_page_text(page_text)
@@ -313,9 +308,9 @@ class IntegrationBlueprintApiClient:
             "scraper_status": self._scraper_status,
         }
 
-        if isinstance(state, str) and len(state) > 255:
+        if isinstance(state, str) and len(state) > MAX_STATE_CHARS:
             attributes["full_text"] = state
-            state = state[:252] + "..."
+            state = state[: MAX_STATE_CHARS - 3] + "..."
 
         self._set_scraper_status("completed")
         attributes["scraper_status"] = self._scraper_status
@@ -328,22 +323,10 @@ class IntegrationBlueprintApiClient:
         }
 
     async def _get_page_text(self, url: str) -> str:
-        """Fetch page text based on the configured extraction mode."""
-        if self._extraction_mode == "vision":
-            if not self._browserless_url:
-                raise IntegrationBlueprintApiClientError(
-                    "Vision extraction requires a configured browserless_url on the provider."
-                )
-            self._set_scraper_status("rendering_page")
+        """Fetch page text from the target URL or browserless endpoint."""
+        if self._browserless_url:
             return await self._fetch_browserless_page_text(url)
-
-        if self._extraction_mode == "dom":
-            self._set_scraper_status("fetching_page")
-            return await self._fetch_page_text(url)
-
-        raise IntegrationBlueprintApiClientError(
-            f"Unsupported extraction mode '{self._extraction_mode}'."
-        )
+        return await self._fetch_page_text(url)
 
     async def _fetch_page_text(self, url: str) -> str:
         """Fetch a page and return its text content."""
@@ -363,33 +346,39 @@ class IntegrationBlueprintApiClient:
                 if attempt == 0:
                     await asyncio.sleep(1)
                     continue
+                msg = f"Error fetching page content - {exception}"
                 raise IntegrationBlueprintApiClientCommunicationError(
-                    f"Error fetching page content - {exception}"
+                    msg
                 ) from exception
             except TimeoutError as exception:
+                msg = f"Timeout error fetching page content - {exception}"
                 raise IntegrationBlueprintApiClientCommunicationError(
-                    f"Timeout error fetching page content - {exception}"
+                    msg
                 ) from exception
             except (aiohttp.ClientError, socket.gaierror) as exception:
+                msg = f"Error fetching page content - {exception}"
                 raise IntegrationBlueprintApiClientCommunicationError(
-                    f"Error fetching page content - {exception}"
+                    msg
                 ) from exception
             except Exception as exception:  # pylint: disable=broad-except
-                raise IntegrationBlueprintApiClientError(
-                    f"Something really wrong happened! - {exception}"
-                ) from exception
+                msg = f"Something really wrong happened! - {exception}"
+                raise IntegrationBlueprintApiClientError(msg) from exception
 
-        raise IntegrationBlueprintApiClientError("Unable to fetch page content")
+        msg = "Unable to fetch page content"
+        raise IntegrationBlueprintApiClientError(msg)
 
     async def _fetch_browserless_page_text(self, url: str) -> str:
-        """Fetch rendered page content via browserless.
+        """
+        Fetch rendered page content via browserless.
 
         The Browserless /content endpoint is asked to wait for the page to settle
         by using gotoOptions.waitUntil=networkidle2 and bestAttempt=True.
         """
         browserless_url = self._normalize_browserless_url(self._browserless_url)
         parsed_url = urlparse(browserless_url)
-        parsed_url = parsed_url._replace(query=urlencode(parse_qs(parsed_url.query), doseq=True))
+        parsed_url = parsed_url._replace(
+            query=urlencode(parse_qs(parsed_url.query), doseq=True)
+        )
 
         payload = {
             "url": url,
@@ -418,44 +407,58 @@ class IntegrationBlueprintApiClient:
                     await asyncio.sleep(1)
                     continue
                 msg = f"Error fetching rendered page content - {exception}"
-                raise IntegrationBlueprintApiClientCommunicationError(msg) from exception
+                raise IntegrationBlueprintApiClientCommunicationError(
+                    msg
+                ) from exception
             except TimeoutError as exception:
                 msg = f"Timeout error fetching rendered page content - {exception}"
-                raise IntegrationBlueprintApiClientCommunicationError(msg) from exception
+                raise IntegrationBlueprintApiClientCommunicationError(
+                    msg
+                ) from exception
             except aiohttp.ClientResponseError as exception:
                 if exception.status == HTTP_STATUS_NOT_FOUND:
                     msg = (
                         "Browserless content endpoint returned 404 Not Found. "
-                        "Verify your browserless_url and ensure the service path is /content. "
-                        "If you are using the Home Assistant browserless add-on, use the add-on host "
-                        "instead of localhost (for example http://browserless:3000)."
+                        "Verify your browserless_url and ensure the service "
+                        "path is /content. If you are using the Home Assistant "
+                        "browserless add-on, use the add-on host instead of "
+                        "localhost (for example http://browserless:3000)."
                     )
                 else:
                     msg = (
                         "Error fetching rendered page content - "
                         f"{exception.status} {exception.message}"
                     )
-                raise IntegrationBlueprintApiClientCommunicationError(msg) from exception
+                raise IntegrationBlueprintApiClientCommunicationError(
+                    msg
+                ) from exception
             except aiohttp.ClientConnectorError as exception:
                 if isinstance(exception.os_error, socket.gaierror):
                     msg = (
                         "DNS lookup failed for the browserless host. "
-                        "Verify your browserless_url host is resolvable from Home Assistant."
+                        "Verify your browserless_url host is resolvable "
+                        "from Home Assistant."
                     )
                 else:
                     msg = (
                         "Error connecting to the browserless host. "
-                        "Verify your browserless_url is correct and reachable from Home Assistant."
+                        "Verify your browserless_url is correct and reachable "
+                        "from Home Assistant."
                     )
-                raise IntegrationBlueprintApiClientCommunicationError(msg) from exception
+                raise IntegrationBlueprintApiClientCommunicationError(
+                    msg
+                ) from exception
             except (aiohttp.ClientError, socket.gaierror) as exception:
                 msg = f"Error fetching rendered page content - {exception}"
-                raise IntegrationBlueprintApiClientCommunicationError(msg) from exception
+                raise IntegrationBlueprintApiClientCommunicationError(
+                    msg
+                ) from exception
             except Exception as exception:  # pylint: disable=broad-except
                 msg = f"Something really wrong happened! - {exception}"
                 raise IntegrationBlueprintApiClientError(msg) from exception
 
-        raise IntegrationBlueprintApiClientError("Unable to fetch rendered page content")
+        msg = "Unable to fetch rendered page content"
+        raise IntegrationBlueprintApiClientError(msg)
 
     def _get_provider(self) -> Provider:
         if self._provider_type == PROVIDER_TYPE_GEMINI:
@@ -473,19 +476,15 @@ class IntegrationBlueprintApiClient:
         )
 
     async def _provider_extract(self, page_text: str) -> str:
-        """Use the configured provider to extract the prompt result from the page text."""
+        """Extract the prompt result from the provided page text."""
         provider = self._get_provider()
         return await provider.extract(page_text)
 
     def _looks_like_html(self, text: str) -> bool:
         """Detect whether a plain string looks like raw HTML."""
         simplified = text.strip().lower()
-        return (
-            simplified.startswith("<!doctype html")
-            or simplified.startswith("<html")
-            or simplified.startswith("<body")
-            or "<html" in simplified
-            or "<body" in simplified
+        return simplified.startswith(("<!doctype html", "<html", "<body")) or (
+            "<html" in simplified or "<body" in simplified
         )
 
     def _normalize_page_text(self, page_text: str) -> str:
@@ -503,10 +502,11 @@ class IntegrationBlueprintApiClient:
         """Normalize the browserless addon URL for fetching rendered content."""
         parsed_url = urlparse(browserless_url)
         if parsed_url.scheme in ("ws", "wss"):
-            raise IntegrationBlueprintApiClientError(
+            msg = (
                 "WebSocket browserless URLs are not supported by this integration. "
                 "Use the HTTP browserless addon endpoint instead."
             )
+            raise IntegrationBlueprintApiClientError(msg)
 
         path = parsed_url.path or ""
         if path.endswith("/") and path != "/":
@@ -540,42 +540,53 @@ class IntegrationBlueprintApiClient:
                         return await response.json()
                     try:
                         return await response.json()
-                    except (aiohttp.ContentTypeError, ValueError):
+                    except aiohttp.ContentTypeError, ValueError:
                         return await response.text()
 
             except TimeoutError as exception:
                 msg = f"Timeout error fetching information - {exception}"
-                raise IntegrationBlueprintApiClientCommunicationError(msg) from exception
+                raise IntegrationBlueprintApiClientCommunicationError(
+                    msg
+                ) from exception
+
             except aiohttp.ClientResponseError as exception:
                 if (
                     attempt < max_attempts - 1
-                    and 500 <= exception.status < 600
+                    and RETRY_HTTP_5XX_LOWER <= exception.status < RETRY_HTTP_5XX_UPPER
                 ):
                     await asyncio.sleep(5)
                     continue
+
                 if exception.status == HTTP_STATUS_NOT_FOUND:
                     msg = (
                         "Browserless API returned 404 Not Found. "
                         "Check your configured browserless_url and the service path."
                     )
-                elif exception.status == 429:
+                elif exception.status == RATE_LIMIT_STATUS:
                     msg = (
                         "Provider rate limit exceeded (429 Too Many Requests). "
-                        "Reduce scrape frequency, check provider quota, or use a different API key."
+                        "Reduce scrape frequency, check provider quota, or "
+                        "use a different API key."
                     )
                 else:
                     msg = (
                         "Error fetching information - "
                         f"{exception.status} {exception.message}"
                     )
-                raise IntegrationBlueprintApiClientCommunicationError(msg) from exception
+
+                raise IntegrationBlueprintApiClientCommunicationError(
+                    msg
+                ) from exception
+
             except (aiohttp.ClientError, socket.gaierror) as exception:
                 msg = f"Error fetching information - {exception}"
-                raise IntegrationBlueprintApiClientCommunicationError(msg) from exception
+                raise IntegrationBlueprintApiClientCommunicationError(
+                    msg
+                ) from exception
+
             except Exception as exception:  # pylint: disable=broad-except
                 msg = f"Something really wrong happened! - {exception}"
                 raise IntegrationBlueprintApiClientError(msg) from exception
 
-        raise IntegrationBlueprintApiClientCommunicationError(
-            "Error fetching information - retries exhausted"
-        )
+        msg = "Error fetching information - retries exhausted"
+        raise IntegrationBlueprintApiClientCommunicationError(msg)

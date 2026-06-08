@@ -252,7 +252,7 @@ async def test_scraper_reconfigure_updates_entry(hass: HomeAssistant) -> None:
             CONF_PROVIDER_ID: provider_entry.entry_id,
             CONF_URL: "https://example.org",
             CONF_PROMPT: "Update text",
-            CONF_EXTRACTION_MODE: "vision",
+            CONF_EXTRACTION_MODE: "browser_based",
             CONF_INTERVAL_SECONDS: 60,
         },
     )
@@ -260,5 +260,5 @@ async def test_scraper_reconfigure_updates_entry(hass: HomeAssistant) -> None:
     assert result["type"] == RESULT_TYPE_CREATE_ENTRY
     assert scraper_entry.data[CONF_SCRAPER_NAME] == "Updated Scraper"
     assert scraper_entry.data[CONF_URL] == "https://example.org"
-    assert scraper_entry.data[CONF_EXTRACTION_MODE] == "vision"
+    assert scraper_entry.data[CONF_EXTRACTION_MODE] == "browser_based"
     assert scraper_entry.data[CONF_INTERVAL_SECONDS] == 60

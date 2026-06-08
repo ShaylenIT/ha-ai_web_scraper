@@ -6,10 +6,9 @@ from unittest.mock import AsyncMock
 import aiohttp
 
 from custom_components.ai_web_scraper.api import (
-    GeminiProvider,
     IntegrationBlueprintApiClient,
-    IntegrationBlueprintApiClientError,
     IntegrationBlueprintApiClientCommunicationError,
+    IntegrationBlueprintApiClientError,
     OpenAIProvider,
 )
 from custom_components.ai_web_scraper.const import (
@@ -38,16 +37,17 @@ def test_gemini_provider_extract_uses_gemini_generate_endpoint() -> None:
     client._get_page_text = AsyncMock(return_value="<html>hello</html>")
     client._api_wrapper = AsyncMock(
         return_value={
-            "candidates": [
-                {"content": {"parts": [{"text": "Extracted result"}]}}
-            ]
+            "candidates": [{"content": {"parts": [{"text": "Extracted result"}]}}]
         }
     )
 
     result = asyncio.run(client.async_get_data())
 
     client._api_wrapper.assert_awaited_once()
-    assert "generativelanguage.googleapis.com" in client._api_wrapper.call_args.kwargs["url"]
+    assert (
+        "generativelanguage.googleapis.com"
+        in client._api_wrapper.call_args.kwargs["url"]
+    )
     assert result["state"] == "Extracted result"
     assert result["attributes"]["scraper_status"] == "completed"
 
@@ -127,7 +127,13 @@ def test_api_wrapper_rate_limit_error_message() -> None:
             return False
 
     class FakeSession:
-        async def request(self, method: str, url: str, headers: dict | None = None, json: dict | None = None) -> FakeResponse:
+        async def request(
+            self,
+            method: str,
+            url: str,
+            headers: dict | None = None,
+            json: dict | None = None,
+        ) -> FakeResponse:
             return response
 
     session = FakeSession()
@@ -145,12 +151,14 @@ def test_api_wrapper_rate_limit_error_message() -> None:
     )
 
     try:
-        asyncio.run(client._api_wrapper(
-            method="post",
-            url="https://api.example.com",
-            data={},
-            headers={},
-        ))
+        asyncio.run(
+            client._api_wrapper(
+                method="post",
+                url="https://api.example.com",
+                data={},
+                headers={},
+            )
+        )
         assert False, "Expected IntegrationBlueprintApiClientCommunicationError"
     except IntegrationBlueprintApiClientCommunicationError as exception:
         assert "Provider rate limit exceeded" in str(exception)

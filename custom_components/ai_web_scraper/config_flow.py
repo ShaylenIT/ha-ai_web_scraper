@@ -320,7 +320,7 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
                         },
                     )
                     return self.async_create_entry(title="done", data={})
-            except Exception as exception:  # pylint: disable=broad-except
+            except Exception:  # pylint: disable=broad-except  # noqa: BLE001
                 LOGGER.exception(
                     "Unexpected error updating provider options for %s",
                     self._config_entry.entry_id,
@@ -413,7 +413,7 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
                         },
                     )
                     return self.async_create_entry(title="done", data={})
-            except Exception as exception:  # pylint: disable=broad-except
+            except Exception:  # pylint: disable=broad-except  # noqa: BLE001
                 LOGGER.exception(
                     "Unexpected error updating scraper options for %s",
                     self._config_entry.entry_id,

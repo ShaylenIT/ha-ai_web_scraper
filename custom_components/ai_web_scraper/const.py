@@ -30,6 +30,6 @@ PROVIDER_TYPES = {
 ENTRY_TYPE_PROVIDER = "provider"
 ENTRY_TYPE_SCRAPER = "scraper"
 EXTRACTION_MODES = {
-    "dom": "DOM extraction",
-    "vision": "Vision extraction",
+    "dom": "Text/HTML Based Extraction",
+    "browser_based": "Browser Based Extraction",
 }
