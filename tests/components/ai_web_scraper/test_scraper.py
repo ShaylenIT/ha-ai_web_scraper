@@ -292,12 +292,24 @@ async def test_build_entry_client_missing_provider_raises_error() -> None:
 
 async def test_client_fetches_page_text_when_no_browserless_url() -> None:
     """Test that the client fetches page text directly when browserless_url is unset."""
-    response = AsyncMock()
-    response.status = 200
-    response.text = AsyncMock(return_value="Hello from example.com")
+    page_response = AsyncMock()
+    page_response.status = 200
+    page_response.text = AsyncMock(return_value="Hello from example.com")
+    page_response.raise_for_status = AsyncMock()
+
+    provider_response = AsyncMock()
+    provider_response.status = 200
+    provider_response.headers = {"Content-Type": "application/json"}
+    provider_response.json = AsyncMock(return_value={
+        "choices": [
+            {"message": {"content": "Extracted output"}}
+        ]
+    })
+    provider_response.raise_for_status = AsyncMock()
 
     session = AsyncMock()
-    session.get.return_value.__aenter__.return_value = response
+    session.get.return_value.__aenter__.return_value = page_response
+    session.request.return_value.__aenter__.return_value = provider_response
 
     client = IntegrationBlueprintApiClient(
         provider_name="provider",
@@ -313,7 +325,7 @@ async def test_client_fetches_page_text_when_no_browserless_url() -> None:
 
     data = await client.async_get_data()
 
-    assert data["state"] == "Hello from example.com"
+    assert data["state"] == "Extracted output"
     session.get.assert_awaited_once_with(
         "https://example.com",
         headers={
@@ -321,19 +333,57 @@ async def test_client_fetches_page_text_when_no_browserless_url() -> None:
             "User-Agent": "Mozilla/5.0 (HomeAssistant) ai_web_scraper",
         },
     )
+    session.request.assert_awaited_once_with(
+        method="post",
+        url="https://api.openai.com/v1/chat/completions",
+        headers={
+            "Authorization": "Bearer key",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": "gpt-4",
+            "temperature": 0,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a helpful assistant that extracts relevant information "
+                        "from a web page based on the user prompt. Return only the "
+                        "requested output without additional commentary."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        "Instructions: Extract text\n\n"
+                        "Web page content:\nHello from example.com"
+                    ),
+                },
+            ],
+        },
+    )
 
 
 async def test_client_uses_browserless_content_endpoint_when_base_url_passed() -> None:
     """Test browserless addon URL normalization to the /content path."""
-    response = AsyncMock()
-    response.status = 200
-    response.text = AsyncMock(return_value="<html>ok</html>")
-    response.json = AsyncMock(side_effect=ValueError("not json"))
-    response.headers = {"Content-Type": "text/html"}
-    response.raise_for_status = AsyncMock()
+    page_response = AsyncMock()
+    page_response.status = 200
+    page_response.text = AsyncMock(return_value="<html>ok</html>")
+    page_response.raise_for_status = AsyncMock()
+
+    provider_response = AsyncMock()
+    provider_response.status = 200
+    provider_response.headers = {"Content-Type": "application/json"}
+    provider_response.json = AsyncMock(return_value={
+        "choices": [
+            {"message": {"content": "Rendered extracted output"}}
+        ]
+    })
+    provider_response.raise_for_status = AsyncMock()
 
     session = AsyncMock()
-    session.request.return_value = response
+    session.get.return_value.__aenter__.return_value = page_response
+    session.request.return_value.__aenter__.return_value = provider_response
 
     client = IntegrationBlueprintApiClient(
         provider_name="provider",
@@ -349,12 +399,42 @@ async def test_client_uses_browserless_content_endpoint_when_base_url_passed() -
 
     data = await client.async_get_data()
 
-    assert data["state"] == "<html>ok</html>"
+    assert data["state"] == "Rendered extracted output"
+    session.get.assert_awaited_once_with(
+        "http://browserless:3000/content?url=https://example.com",
+        headers={
+            "Accept": "text/html",
+            "User-Agent": "Mozilla/5.0 (HomeAssistant) ai_web_scraper",
+        },
+    )
     session.request.assert_awaited_once_with(
         method="post",
-        url="http://browserless:3000/content",
-        headers={"Content-Type": "application/json"},
-        json={"url": "https://example.com"},
+        url="https://api.openai.com/v1/chat/completions",
+        headers={
+            "Authorization": "Bearer key",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": "gpt-4",
+            "temperature": 0,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a helpful assistant that extracts relevant information "
+                        "from a web page based on the user prompt. Return only the "
+                        "requested output without additional commentary."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        "Instructions: Extract text\n\n"
+                        "Web page content:\n<html>ok</html>"
+                    ),
+                },
+            ],
+        },
     )
 
 
