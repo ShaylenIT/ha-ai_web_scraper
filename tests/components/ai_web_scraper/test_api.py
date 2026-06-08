@@ -29,13 +29,17 @@ def test_gemini_provider_extract_uses_gemini_generate_endpoint() -> None:
     )
     client._get_page_text = AsyncMock(return_value="<html>hello</html>")
     client._api_wrapper = AsyncMock(
-        return_value={"candidates": [{"content": "Extracted result"}]}
+        return_value={
+            "candidates": [
+                {"content": {"parts": [{"text": "Extracted result"}]}}
+            ]
+        }
     )
 
     result = asyncio.run(client.async_get_data())
 
     client._api_wrapper.assert_awaited_once()
-    assert "labs.google" in client._api_wrapper.call_args.kwargs["url"]
+    assert "generativelanguage.googleapis.com" in client._api_wrapper.call_args.kwargs["url"]
     assert result["state"] == "Extracted result"
 
 

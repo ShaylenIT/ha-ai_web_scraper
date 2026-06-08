@@ -290,33 +290,53 @@ class IntegrationBlueprintApiClient:
         """Use a Google Gemini provider to extract the prompt result."""
         response = await self._api_wrapper(
             method="post",
-            url=f"https://api.labs.google/v1alpha2/models/{self._model_name}:generate",
+            url=(
+                f"https://generativelanguage.googleapis.com/v1beta/models/"
+                f"{self._model_name}:generateContent?key={self._api_key}"
+            ),
             headers={
-                "Authorization": f"Bearer {self._api_key}",
                 "Content-Type": "application/json",
             },
             data={
-                "prompt": {
-                    "text": (
-                        f"Instructions: {self._prompt}\n\n"
-                        f"Web page content:\n{page_text}"
-                    )
+                "contents": [
+                    {
+                        "role": "user",
+                        "parts": [
+                            {
+                                "text": (
+                                    f"Instructions: {self._prompt}\n\n"
+                                    f"Web page content:\n{page_text}"
+                                )
+                            }
+                        ],
+                    }
+                ],
+                "generationConfig": {
+                    "maxOutputTokens": 1024,
+                    "temperature": 0,
+                    "topP": 1,
                 },
-                "temperature": 0,
             },
         )
 
         if isinstance(response, dict):
             candidates = response.get("candidates", [])
-            if not candidates:
+            if not candidates or not isinstance(candidates, list):
                 raise IntegrationBlueprintApiClientError(
                     "Provider response did not contain any choices."
                 )
 
             candidate = candidates[0]
-            content = candidate.get("content", "") or candidate.get("output", "")
+            content = candidate.get("content") if isinstance(candidate, dict) else None
+            if isinstance(content, dict):
+                parts = content.get("parts", [])
+                if parts and isinstance(parts[0], dict):
+                    content = parts[0].get("text", "")
+                else:
+                    content = ""
+
             if not isinstance(content, str):
-                content = str(content)
+                content = str(content or "")
 
             if not content.strip():
                 raise IntegrationBlueprintApiClientError(
