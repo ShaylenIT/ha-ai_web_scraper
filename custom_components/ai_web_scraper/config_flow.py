@@ -13,7 +13,6 @@ from .const import (
     CONF_BROWSERLESS_URL,
     CONF_ENTRY_TYPE,
     CONF_EXTRACTION_MODE,
-    CONF_INTERVAL_SECONDS,
     CONF_MODEL_NAME,
     CONF_PROMPT,
     CONF_PROVIDER_ID,
@@ -151,10 +150,6 @@ class AIWebScraperConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 CONF_EXTRACTION_MODE,
                 default=(user_input or {}).get(CONF_EXTRACTION_MODE, vol.UNDEFINED),
             ): vol.In(EXTRACTION_MODES),
-            vol.Required(
-                CONF_INTERVAL_SECONDS,
-                default=(user_input or {}).get(CONF_INTERVAL_SECONDS, 60),
-            ): vol.All(vol.Coerce(int), vol.Range(min=0)),
         }
 
         if provider_options:
@@ -247,7 +242,6 @@ class AIWebScraperConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_URL: user_input[CONF_URL],
                         CONF_PROMPT: user_input[CONF_PROMPT],
                         CONF_EXTRACTION_MODE: user_input[CONF_EXTRACTION_MODE],
-                        CONF_INTERVAL_SECONDS: user_input[CONF_INTERVAL_SECONDS],
                     },
                 )
 
@@ -409,7 +403,6 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
                             CONF_URL: user_input[CONF_URL],
                             CONF_PROMPT: user_input[CONF_PROMPT],
                             CONF_EXTRACTION_MODE: user_input[CONF_EXTRACTION_MODE],
-                            CONF_INTERVAL_SECONDS: user_input[CONF_INTERVAL_SECONDS],
                         },
                     )
                     return self.async_create_entry(title="done", data={})
@@ -445,10 +438,6 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
                     CONF_EXTRACTION_MODE, vol.UNDEFINED
                 ),
             ): vol.In(EXTRACTION_MODES),
-            vol.Required(
-                CONF_INTERVAL_SECONDS,
-                default=self._config_entry.data.get(CONF_INTERVAL_SECONDS, 60),
-            ): vol.All(vol.Coerce(int), vol.Range(min=0)),
         }
 
         if provider_options:

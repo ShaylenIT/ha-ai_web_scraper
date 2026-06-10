@@ -105,7 +105,7 @@ async def async_setup_entry(
         return False
 
     update_interval = None
-    interval_seconds = entry.data.get(CONF_INTERVAL_SECONDS, 60)
+    interval_seconds = entry.data.get(CONF_INTERVAL_SECONDS, 0)
     if interval_seconds and interval_seconds > 0:
         update_interval = timedelta(seconds=int(interval_seconds))
 

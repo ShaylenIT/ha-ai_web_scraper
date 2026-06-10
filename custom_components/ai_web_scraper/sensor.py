@@ -12,6 +12,7 @@ from homeassistant.components.sensor import (
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.util import dt as dt_util
 
+from .const import CONF_INTERVAL_SECONDS
 from .entity import IntegrationBlueprintEntity
 
 if TYPE_CHECKING:
@@ -37,6 +38,12 @@ ENTITY_DESCRIPTIONS = (
         name="Last Scrape",
         icon="mdi:clock-outline",
         device_class=SensorDeviceClass.TIMESTAMP,
+    ),
+    SensorEntityDescription(
+        key="ai_web_scraper_interval",
+        name="Scrape interval",
+        icon="mdi:timer-sand",
+        native_unit_of_measurement="minutes",
     ),
 )
 
@@ -95,6 +102,15 @@ class IntegrationBlueprintSensor(
             if isinstance(last_scrape, str):
                 return dt_util.parse_datetime(last_scrape)
             return last_scrape
+
+        if self.entity_description.key == "ai_web_scraper_interval":
+            interval_seconds = self.coordinator.config_entry.data.get(
+                CONF_INTERVAL_SECONDS, 0
+            )
+            interval_minutes = float(interval_seconds) / 60
+            return int(interval_minutes) if interval_minutes.is_integer() else round(
+                interval_minutes, 2
+            )
 
         state = self.coordinator.data.get("state")
         if (

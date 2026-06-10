@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock
@@ -269,7 +270,43 @@ def test_last_scrape_sensor_reports_timestamp() -> None:
     )
 
     assert sensor.name == "Test Scraper Last Scrape"
-    assert sensor.native_value == "2026-06-10T00:00:00+00:00"
+    assert sensor.native_value == datetime(2026, 6, 10, 0, 0, tzinfo=timezone.utc)
+    assert sensor.extra_state_attributes == state["attributes"]
+
+
+def test_interval_sensor_reports_minutes() -> None:
+    """Test that the scrape interval sensor reports minutes."""
+    entry = ConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Scraper",
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_SCRAPER,
+            CONF_PROVIDER_ID: "provider-id",
+            CONF_SCRAPER_NAME: "Test Scraper",
+            CONF_URL: "https://example.com",
+            CONF_PROMPT: "Extract text",
+            CONF_EXTRACTION_MODE: "dom",
+            CONF_INTERVAL_SECONDS: 120,
+        },
+        source="user",
+        options={},
+        entry_id="scraper-entry-id",
+    )
+
+    state = {"state": "parsed result", "attributes": {}}
+    coordinator = DummyCoordinator(entry, state)
+    sensor = IntegrationBlueprintSensor(
+        coordinator=coordinator,
+        entity_description=SensorEntityDescription(
+            key="ai_web_scraper_interval",
+            name="Scrape interval",
+            native_unit_of_measurement="minutes",
+        ),
+    )
+
+    assert sensor.name == "Test Scraper Scrape interval"
+    assert sensor.native_value == 2
     assert sensor.extra_state_attributes == state["attributes"]
 
 

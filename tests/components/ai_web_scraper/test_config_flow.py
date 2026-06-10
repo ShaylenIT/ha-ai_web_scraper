@@ -157,7 +157,6 @@ async def test_add_scraper_with_provider(hass: HomeAssistant) -> None:
             CONF_URL: "https://example.com",
             CONF_PROMPT: "Extract text",
             CONF_EXTRACTION_MODE: "dom",
-            CONF_INTERVAL_SECONDS: 0,
         },
     )
 
@@ -165,6 +164,7 @@ async def test_add_scraper_with_provider(hass: HomeAssistant) -> None:
     assert result["data"][CONF_ENTRY_TYPE] == ENTRY_TYPE_SCRAPER
     assert result["data"][CONF_PROVIDER_ID] == provider_entry.entry_id
     assert result["data"][CONF_SCRAPER_NAME] == "Test Scraper"
+    assert result["data"][CONF_INTERVAL_SECONDS] == 0
 
 
 async def test_provider_reconfigure_updates_entry(hass: HomeAssistant) -> None:
@@ -253,7 +253,6 @@ async def test_scraper_reconfigure_updates_entry(hass: HomeAssistant) -> None:
             CONF_URL: "https://example.org",
             CONF_PROMPT: "Update text",
             CONF_EXTRACTION_MODE: "browser_based",
-            CONF_INTERVAL_SECONDS: 60,
         },
     )
 
@@ -261,4 +260,4 @@ async def test_scraper_reconfigure_updates_entry(hass: HomeAssistant) -> None:
     assert scraper_entry.data[CONF_SCRAPER_NAME] == "Updated Scraper"
     assert scraper_entry.data[CONF_URL] == "https://example.org"
     assert scraper_entry.data[CONF_EXTRACTION_MODE] == "browser_based"
-    assert scraper_entry.data[CONF_INTERVAL_SECONDS] == 60
+    assert scraper_entry.data[CONF_INTERVAL_SECONDS] == 30
