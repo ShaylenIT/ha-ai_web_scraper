@@ -544,9 +544,22 @@ class IntegrationBlueprintApiClient:
                             "User-Agent": "Mozilla/5.0 (HomeAssistant) ai_web_scraper",
                         },
                     )
+                    LOGGER.debug(
+                        "Browserless screenshot attempt %d for %s returned status %d",
+                        attempt + 1,
+                        url,
+                        response.status,
+                    )
                     await _verify_response_or_raise(response)
                     return await response.read()
             except aiohttp.ClientResponseError as exception:
+                LOGGER.debug(
+                    "Browserless screenshot attempt %d for %s failed with status %d: %s",
+                    attempt + 1,
+                    url,
+                    exception.status,
+                    exception.message,
+                )
                 if exception.status == HTTP_STATUS_NOT_FOUND:
                     msg = (
                         "Browserless screenshot endpoint returned 404 Not Found. "
