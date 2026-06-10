@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from homeassistant.components.number import (
     NumberEntity,
     NumberEntityDescription,
+    NumberMode,
 )
 
 from .const import CONF_INTERVAL_SECONDS
@@ -26,7 +27,9 @@ ENTITY_DESCRIPTIONS = (
         icon="mdi:timer-sand",
         native_unit_of_measurement="minutes",
         native_min_value=0,
+        native_max_value=1440,
         native_step=1,
+        mode=NumberMode.BOX,
     ),
 )
 
