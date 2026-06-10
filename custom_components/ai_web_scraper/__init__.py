@@ -8,6 +8,7 @@ https://github.com/ludeeus/ai_web_scraper
 from __future__ import annotations
 
 from datetime import timedelta
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from homeassistant.const import Platform
@@ -65,6 +66,9 @@ def _build_entry_client(
     else:
         provider_type = PROVIDER_TYPE_OPENAI
 
+    screenshot_dir = hass.config.path(DOMAIN, "screenshots")
+    Path(screenshot_dir).mkdir(parents=True, exist_ok=True)
+
     return IntegrationBlueprintApiClient(
         provider_name=provider_name,
         api_key=api_key,
@@ -76,6 +80,8 @@ def _build_entry_client(
         prompt=entry.data.get(CONF_PROMPT, ""),
         extraction_mode=entry.data.get(CONF_EXTRACTION_MODE, "dom"),
         session=async_get_clientsession(hass),
+        screenshot_dir=screenshot_dir,
+        screenshot_filename=f"{entry.entry_id}.png",
     )
 
 
@@ -87,6 +93,7 @@ PLATFORMS: list[Platform] = [
     Platform.BINARY_SENSOR,
     Platform.BUTTON,
     Platform.NUMBER,
+    Platform.CAMERA,
 ]
 
 

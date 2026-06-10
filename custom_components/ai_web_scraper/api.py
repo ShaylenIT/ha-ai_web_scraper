@@ -5,10 +5,12 @@ from __future__ import annotations
 import asyncio
 import html
 import inspect
+import os
 import re
 import socket
 from collections.abc import Callable
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
@@ -252,6 +254,8 @@ class IntegrationBlueprintApiClient:
         extraction_mode: str,
         session: aiohttp.ClientSession,
         provider_type: str = PROVIDER_TYPE_OPENAI,
+        screenshot_dir: str | None = None,
+        screenshot_filename: str | None = None,
     ) -> None:
         """Initialize the scraper client."""
         self._provider_name = provider_name
@@ -266,6 +270,8 @@ class IntegrationBlueprintApiClient:
         self._session = session
         self._missing_provider = not bool(self._provider_name and self._api_key)
         self._scraper_status = "idle"
+        self._screenshot_dir = screenshot_dir
+        self._screenshot_filename = screenshot_filename
 
     def _set_scraper_status(self, status: str) -> None:
         """Update the current scraper status."""
@@ -275,8 +281,9 @@ class IntegrationBlueprintApiClient:
         """
         Get scraped data from the configured provider or the target URL.
 
-        This integration processes scraped content entirely in memory. No page
-        HTML, screenshot, or temporary artifacts are persisted to disk.
+        This integration persists screenshots for the configured scraper entry
+        under the Home Assistant config directory so they remain available
+        across restarts.
         """
         if self._missing_provider:
             msg = (
@@ -294,10 +301,18 @@ class IntegrationBlueprintApiClient:
         page_text = await self._get_page_text(self._url)
         page_text = self._normalize_page_text(page_text)
         self._set_scraper_status("waiting_for_ai")
+        screenshot = None
+        if self._browserless_url:
+            screenshot = await self._fetch_browserless_page_screenshot(self._url)
+
         state = await self._provider_extract(page_text)
         self._set_scraper_status("processing_ai_response")
         duration = (datetime.now(tz=UTC) - start).total_seconds()
         now = datetime.now(tz=UTC).isoformat()
+
+        screenshot_path = None
+        if screenshot is not None and self._screenshot_dir:
+            screenshot_path = self._save_screenshot(screenshot)
 
         attributes = {
             "url": self._url,
@@ -309,6 +324,9 @@ class IntegrationBlueprintApiClient:
             "last_scrape": now,
             "scraper_status": self._scraper_status,
         }
+
+        if screenshot_path:
+            attributes["screenshot_path"] = screenshot_path
 
         if isinstance(state, str) and len(state) > MAX_STATE_CHARS:
             attributes["full_text"] = state
@@ -461,6 +479,112 @@ class IntegrationBlueprintApiClient:
 
         msg = "Unable to fetch rendered page content"
         raise IntegrationBlueprintApiClientError(msg)
+
+    async def _fetch_browserless_page_screenshot(self, url: str) -> bytes:
+        """
+        Capture a full-page screenshot via browserless.
+
+        The Browserless /screenshot endpoint is asked to wait for the page to
+        settle by using gotoOptions.waitUntil=networkidle2 and fullPage=True.
+        """
+        browserless_url = self._normalize_browserless_url(self._browserless_url)
+        parsed_url = urlparse(browserless_url)
+        parsed_url = parsed_url._replace(
+            path="/screenshot",
+            query=urlencode(parse_qs(parsed_url.query), doseq=True),
+        )
+
+        payload = {
+            "url": url,
+            "gotoOptions": {
+                "waitUntil": "networkidle2",
+                "timeout": 30000,
+            },
+            "fullPage": True,
+            "type": "png",
+        }
+
+        for attempt in range(2):
+            try:
+                async with async_timeout.timeout(30):
+                    response = await self._session.post(
+                        urlunparse(parsed_url),
+                        json=payload,
+                        headers={
+                            "Accept": "image/png",
+                            "User-Agent": "Mozilla/5.0 (HomeAssistant) ai_web_scraper",
+                        },
+                    )
+                    await _verify_response_or_raise(response)
+                    return await response.read()
+            except aiohttp.ServerDisconnectedError as exception:
+                if attempt == 0:
+                    await asyncio.sleep(1)
+                    continue
+                msg = f"Error fetching rendered page screenshot - {exception}"
+                raise IntegrationBlueprintApiClientCommunicationError(
+                    msg
+                ) from exception
+            except TimeoutError as exception:
+                msg = f"Timeout error fetching rendered page screenshot - {exception}"
+                raise IntegrationBlueprintApiClientCommunicationError(
+                    msg
+                ) from exception
+            except aiohttp.ClientResponseError as exception:
+                if exception.status == HTTP_STATUS_NOT_FOUND:
+                    msg = (
+                        "Browserless screenshot endpoint returned 404 Not Found. "
+                        "Verify your browserless_url and ensure the service "
+                        "path is /screenshot. If you are using the Home Assistant "
+                        "browserless add-on, use the add-on host instead of "
+                        "localhost (for example http://browserless:3000)."
+                    )
+                else:
+                    msg = (
+                        "Error fetching rendered page screenshot - "
+                        f"{exception.status} {exception.message}"
+                    )
+                raise IntegrationBlueprintApiClientCommunicationError(
+                    msg
+                ) from exception
+            except aiohttp.ClientConnectorError as exception:
+                if isinstance(exception.os_error, socket.gaierror):
+                    msg = (
+                        "DNS lookup failed for the browserless host. "
+                        "Verify your browserless_url host is resolvable "
+                        "from Home Assistant."
+                    )
+                else:
+                    msg = (
+                        "Error connecting to the browserless host. "
+                        "Verify your browserless_url is correct and reachable "
+                        "from Home Assistant."
+                    )
+                raise IntegrationBlueprintApiClientCommunicationError(
+                    msg
+                ) from exception
+            except (aiohttp.ClientError, socket.gaierror) as exception:
+                msg = f"Error fetching rendered page screenshot - {exception}"
+                raise IntegrationBlueprintApiClientCommunicationError(
+                    msg
+                ) from exception
+            except Exception as exception:  # pylint: disable=broad-except
+                msg = f"Something really wrong happened! - {exception}"
+                raise IntegrationBlueprintApiClientError(msg) from exception
+
+        msg = "Unable to fetch rendered page screenshot"
+        raise IntegrationBlueprintApiClientError(msg)
+
+    def _save_screenshot(self, screenshot: bytes) -> str:
+        if not self._screenshot_dir or not self._screenshot_filename:
+            raise IntegrationBlueprintApiClientError(
+                "Screenshot storage location is not configured."
+            )
+
+        screenshot_path = Path(self._screenshot_dir) / self._screenshot_filename
+        screenshot_path.parent.mkdir(parents=True, exist_ok=True)
+        screenshot_path.write_bytes(screenshot)
+        return str(screenshot_path)
 
     def _get_provider(self) -> Provider:
         if self._provider_type == PROVIDER_TYPE_GEMINI:

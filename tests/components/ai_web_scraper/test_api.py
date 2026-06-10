@@ -242,3 +242,30 @@ def test_normalize_page_text_removes_html_tags() -> None:
     )
 
     assert normalized == "Hello World"
+
+
+def test_browserless_screenshot_is_saved_to_disk(tmp_path) -> None:
+    client = IntegrationBlueprintApiClient(
+        provider_name="Test Provider",
+        api_key="test-key",
+        model_name="gpt-4",
+        browserless_url="https://example.com/api",
+        scraper_name="Test Scraper",
+        url="https://example.com",
+        prompt="Extract text",
+        extraction_mode="dom",
+        session=DummySession(),
+        screenshot_dir=str(tmp_path),
+        screenshot_filename="scraper-entry-id.png",
+    )
+
+    client._fetch_browserless_page_text = AsyncMock(return_value="<html>hello</html>")
+    client._fetch_browserless_page_screenshot = AsyncMock(return_value=b"PNGDATA")
+    client._provider_extract = AsyncMock(return_value="Extracted result")
+
+    result = asyncio.run(client.async_get_data())
+
+    assert result["attributes"]["screenshot_path"] == str(
+        tmp_path / "scraper-entry-id.png"
+    )
+    assert (tmp_path / "scraper-entry-id.png").read_bytes() == b"PNGDATA"
