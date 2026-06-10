@@ -75,7 +75,7 @@ class IntegrationBlueprintSensor(
         if self.entity_description.key != "ai_web_scraper_last_scrape":
             return
 
-        last_state = await self._async_get_last_state()
+        last_state = await self.async_get_last_state()
         if last_state is not None and last_state.state not in (None, "", "unknown"):
             self._restored_last_scrape = last_state.state
 
