@@ -29,6 +29,7 @@ from .const import (
     CONF_PROVIDER_TYPE,
     CONF_SCRAPER_NAME,
     CONF_URL,
+    DOMAIN,
     ENTRY_TYPE_PROVIDER,
     ENTRY_TYPE_SCRAPER,
     LOGGER,
