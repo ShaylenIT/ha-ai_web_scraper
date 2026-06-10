@@ -508,6 +508,17 @@ class IntegrationBlueprintApiClient:
                     "waitUntil": "networkidle2",
                     "timeout": 30000,
                 },
+                "options": {
+                    "fullPage": True,
+                    "type": "png",
+                },
+            },
+            {
+                "url": url,
+                "gotoOptions": {
+                    "waitUntil": "networkidle2",
+                    "timeout": 30000,
+                },
                 "fullPage": True,
                 "type": "png",
             },

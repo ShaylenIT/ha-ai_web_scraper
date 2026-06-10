@@ -319,3 +319,54 @@ def test_browserless_screenshot_falls_back_on_400_bad_request() -> None:
 
     assert screenshot == b"PNGDATA"
     assert session.post.await_count == 3
+
+
+def test_browserless_screenshot_uses_standard_payload_first() -> None:
+    class FakeResponse:
+        def __init__(self, status: int, content: bytes = b"") -> None:
+            self.status = status
+            self.headers = {"Content-Type": "image/png"}
+            self._content = content
+            self.raise_for_status = AsyncMock()
+
+        async def read(self) -> bytes:
+            return self._content
+
+    success_response = FakeResponse(status=200, content=b"PNGDATA")
+
+    session = AsyncMock()
+    session.post.return_value = success_response
+
+    client = IntegrationBlueprintApiClient(
+        provider_name="Test Provider",
+        api_key="test-key",
+        model_name="gpt-4",
+        browserless_url="https://example.com/api",
+        scraper_name="Test Scraper",
+        url="https://example.com",
+        prompt="Extract text",
+        extraction_mode="dom",
+        session=session,
+        screenshot_dir=".",
+        screenshot_filename="scraper-entry-id.png",
+    )
+
+    screenshot = asyncio.run(client._fetch_browserless_page_screenshot("https://example.com"))
+
+    assert screenshot == b"PNGDATA"
+    assert session.post.await_count == 1
+
+    # Verify the first call JSON payload is standard schema
+    call_kwargs = session.post.call_args.kwargs
+    assert "json" in call_kwargs
+    payload = call_kwargs["json"]
+    assert payload["url"] == "https://example.com"
+    assert payload["gotoOptions"] == {
+        "waitUntil": "networkidle2",
+        "timeout": 30000,
+    }
+    assert payload["options"] == {
+        "fullPage": True,
+        "type": "png",
+    }
+
