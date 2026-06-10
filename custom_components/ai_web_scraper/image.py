@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from homeassistant.components.image import ImageEntity
+from homeassistant.helpers.entity import EntityDescription
 
 from .entity import IntegrationBlueprintEntity
 from .const import DOMAIN
@@ -51,6 +52,9 @@ class IntegrationBlueprintImage(IntegrationBlueprintEntity, ImageEntity):
         self._attr_unique_id = f"{coordinator.config_entry.entry_id}_screenshot"
         self._attr_name = f"{coordinator.config_entry.title} Screenshot"
         self._attr_content_type = "image/png"
+        # Ensure entity_description is present so HA helpers don't crash
+        # when checking for `has_entity_name` during registration.
+        self.entity_description = EntityDescription()
 
     @property
     def image_last_updated(self) -> datetime | None:
