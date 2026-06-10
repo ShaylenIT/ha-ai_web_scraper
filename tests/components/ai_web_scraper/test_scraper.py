@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock
 import pytest
 from aiohttp.client_exceptions import ClientConnectorError
 from homeassistant.components.binary_sensor import BinarySensorEntityDescription
+from homeassistant.components.number import NumberEntityDescription
 from homeassistant.components.sensor import SensorEntityDescription
 from homeassistant.config_entries import ConfigEntry
 
@@ -47,6 +48,7 @@ from custom_components.ai_web_scraper.coordinator import (
     AIWebScraperDataUpdateCoordinator,
 )
 from custom_components.ai_web_scraper.data import IntegrationBlueprintData
+from custom_components.ai_web_scraper.number import IntegrationBlueprintNumber
 from custom_components.ai_web_scraper.sensor import IntegrationBlueprintSensor
 
 if TYPE_CHECKING:
@@ -274,8 +276,8 @@ def test_last_scrape_sensor_reports_timestamp() -> None:
     assert sensor.extra_state_attributes == state["attributes"]
 
 
-def test_interval_sensor_reports_minutes() -> None:
-    """Test that the scrape interval sensor reports minutes."""
+def test_interval_number_reports_minutes() -> None:
+    """Test that the scrape interval number reports minutes."""
     entry = ConfigEntry(
         version=1,
         domain=DOMAIN,
@@ -296,18 +298,19 @@ def test_interval_sensor_reports_minutes() -> None:
 
     state = {"state": "parsed result", "attributes": {}}
     coordinator = DummyCoordinator(entry, state)
-    sensor = IntegrationBlueprintSensor(
+    number_entity = IntegrationBlueprintNumber(
         coordinator=coordinator,
-        entity_description=SensorEntityDescription(
+        entity_description=NumberEntityDescription(
             key="ai_web_scraper_interval",
             name="Scrape interval",
             native_unit_of_measurement="minutes",
+            native_min_value=0,
+            native_step=1,
         ),
     )
 
-    assert sensor.name == "Test Scraper Scrape interval"
-    assert sensor.native_value == 2
-    assert sensor.extra_state_attributes == state["attributes"]
+    assert number_entity.name == "Test Scraper Scrape interval"
+    assert number_entity.native_value == 2
 
 
 def test_status_binary_sensor_failure_state() -> None:

@@ -13,6 +13,7 @@ from .const import (
     CONF_BROWSERLESS_URL,
     CONF_ENTRY_TYPE,
     CONF_EXTRACTION_MODE,
+    CONF_INTERVAL_SECONDS,
     CONF_MODEL_NAME,
     CONF_PROMPT,
     CONF_PROVIDER_ID,
@@ -242,6 +243,7 @@ class AIWebScraperConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_URL: user_input[CONF_URL],
                         CONF_PROMPT: user_input[CONF_PROMPT],
                         CONF_EXTRACTION_MODE: user_input[CONF_EXTRACTION_MODE],
+                        CONF_INTERVAL_SECONDS: 0,
                     },
                 )
 
