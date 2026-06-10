@@ -93,3 +93,4 @@ class IntegrationBlueprintNumber(IntegrationBlueprintEntity, NumberEntity):
             self.coordinator.config_entry,
             data=new_data,
         )
+        self.async_write_ha_state()
