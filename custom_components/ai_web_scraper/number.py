@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from homeassistant.components.number import (
@@ -80,10 +81,15 @@ class IntegrationBlueprintNumber(IntegrationBlueprintEntity, NumberEntity):
     async def async_set_native_value(self, value: float) -> None:
         """Update the scrape interval value."""
         seconds = int(value * 60)
+        new_data = {
+            **self.coordinator.config_entry.data,
+            CONF_INTERVAL_SECONDS: seconds,
+        }
+
+        self.coordinator.update_interval = (
+            timedelta(seconds=seconds) if seconds > 0 else None
+        )
         self.hass.config_entries.async_update_entry(
             self.coordinator.config_entry,
-            data={
-                **self.coordinator.config_entry.data,
-                CONF_INTERVAL_SECONDS: seconds,
-            },
+            data=new_data,
         )
