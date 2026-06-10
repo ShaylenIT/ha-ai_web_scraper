@@ -84,7 +84,10 @@ async def test_coordinator_fetches_scrape_data(hass: HomeAssistant) -> None:
     client = AsyncMock()
     client.async_get_data.return_value = {
         "state": "hello",
-        "attributes": {"url": "https://example.com"},
+        "attributes": {
+            "url": "https://example.com",
+            "last_scrape": "2026-06-10T00:00:00+00:00",
+        },
         "error_message": "",
         "last_attempt_status": "success",
     }
@@ -149,6 +152,7 @@ async def test_coordinator_logs_scrape_failure(
 
     assert "Scraper data fetch failed for Test Scraper" in caplog.text
     assert coordinator.data["last_attempt_status"] == "failure"
+    assert coordinator.data["attributes"]["last_scrape"] is not None
 
 
 class DummyCoordinator:
@@ -228,6 +232,44 @@ def test_sensor_reports_coordinator_state() -> None:
 
     assert sensor.name == "Test Scraper Data"
     assert sensor.native_value == "parsed result"
+    assert sensor.extra_state_attributes == state["attributes"]
+
+
+def test_last_scrape_sensor_reports_timestamp() -> None:
+    """Test that the last scrape sensor reports the last scrape timestamp."""
+    entry = ConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Scraper",
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_SCRAPER,
+            CONF_PROVIDER_ID: "provider-id",
+            CONF_SCRAPER_NAME: "Test Scraper",
+            CONF_URL: "https://example.com",
+            CONF_PROMPT: "Extract text",
+            CONF_EXTRACTION_MODE: "dom",
+            CONF_INTERVAL_SECONDS: 0,
+        },
+        source="user",
+        options={},
+        entry_id="scraper-entry-id",
+    )
+
+    state = {
+        "state": None,
+        "attributes": {"last_scrape": "2026-06-10T00:00:00+00:00"},
+    }
+    coordinator = DummyCoordinator(entry, state)
+    sensor = IntegrationBlueprintSensor(
+        coordinator=coordinator,
+        entity_description=SensorEntityDescription(
+            key="ai_web_scraper_last_scrape",
+            name="Last Scrape",
+        ),
+    )
+
+    assert sensor.name == "Test Scraper Last Scrape"
+    assert sensor.native_value == "2026-06-10T00:00:00+00:00"
     assert sensor.extra_state_attributes == state["attributes"]
 
 

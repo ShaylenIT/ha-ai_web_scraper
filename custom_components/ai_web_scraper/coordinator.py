@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.exceptions import ConfigEntryAuthFailed
@@ -45,6 +46,7 @@ class AIWebScraperDataUpdateCoordinator(DataUpdateCoordinator):
                     ),
                     "scrape_duration_seconds": 0,
                     "last_successful_scrape": None,
+                    "last_scrape": datetime.now(timezone.utc).isoformat(),
                     "scraper_status": "failed",
                 },
                 "error_message": str(exception),

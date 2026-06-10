@@ -297,6 +297,7 @@ class IntegrationBlueprintApiClient:
         state = await self._provider_extract(page_text)
         self._set_scraper_status("processing_ai_response")
         duration = (datetime.now(tz=UTC) - start).total_seconds()
+        now = datetime.now(tz=UTC).isoformat()
 
         attributes = {
             "url": self._url,
@@ -304,7 +305,8 @@ class IntegrationBlueprintApiClient:
             "provider_name": self._provider_name,
             "extraction_mode": self._extraction_mode,
             "scrape_duration_seconds": duration,
-            "last_successful_scrape": datetime.now(tz=UTC).isoformat(),
+            "last_successful_scrape": now,
+            "last_scrape": now,
             "scraper_status": self._scraper_status,
         }
 
@@ -540,7 +542,7 @@ class IntegrationBlueprintApiClient:
                         return await response.json()
                     try:
                         return await response.json()
-                    except aiohttp.ContentTypeError, ValueError:
+                    except (aiohttp.ContentTypeError, ValueError):
                         return await response.text()
 
             except TimeoutError as exception:

@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
+from homeassistant.components.sensor import (
+    SensorDeviceClass,
+    SensorEntity,
+    SensorEntityDescription,
+)
+from homeassistant.helpers.restore_state import RestoreEntity
 
 from .entity import IntegrationBlueprintEntity
 
@@ -26,6 +31,12 @@ ENTITY_DESCRIPTIONS = (
         name="Scraper Status",
         icon="mdi:progress-clock",
     ),
+    SensorEntityDescription(
+        key="ai_web_scraper_last_scrape",
+        name="Last Scrape",
+        icon="mdi:clock-outline",
+        device_class=SensorDeviceClass.TIMESTAMP,
+    ),
 )
 
 
@@ -44,7 +55,9 @@ async def async_setup_entry(
     )
 
 
-class IntegrationBlueprintSensor(IntegrationBlueprintEntity, SensorEntity):
+class IntegrationBlueprintSensor(
+    IntegrationBlueprintEntity, SensorEntity, RestoreEntity
+):
     """ai_web_scraper Sensor class."""
 
     def __init__(
@@ -54,6 +67,17 @@ class IntegrationBlueprintSensor(IntegrationBlueprintEntity, SensorEntity):
     ) -> None:
         """Initialize the sensor class."""
         super().__init__(coordinator, entity_description)
+        self._restored_last_scrape: str | None = None
+
+    async def async_added_to_hass(self) -> None:
+        """Restore the last scrape value after restart."""
+        await super().async_added_to_hass()
+        if self.entity_description.key != "ai_web_scraper_last_scrape":
+            return
+
+        last_state = await self._async_get_last_state()
+        if last_state is not None and last_state.state not in (None, "", "unknown"):
+            self._restored_last_scrape = last_state.state
 
     @property
     def native_value(self) -> str | None:
@@ -61,6 +85,11 @@ class IntegrationBlueprintSensor(IntegrationBlueprintEntity, SensorEntity):
         if self.entity_description.key == "ai_web_scraper_status":
             return self.coordinator.data.get("attributes", {}).get(
                 "scraper_status", "unknown"
+            )
+
+        if self.entity_description.key == "ai_web_scraper_last_scrape":
+            return self.coordinator.data.get("attributes", {}).get(
+                "last_scrape", self._restored_last_scrape
             )
 
         state = self.coordinator.data.get("state")
