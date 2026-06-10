@@ -501,17 +501,39 @@ class IntegrationBlueprintApiClient:
             query=urlencode(parse_qs(parsed_url.query), doseq=True),
         )
 
-        payload = {
-            "url": url,
-            "gotoOptions": {
-                "waitUntil": "networkidle2",
-                "timeout": 30000,
+        payloads = [
+            {
+                "url": url,
+                "gotoOptions": {
+                    "waitUntil": "networkidle2",
+                    "timeout": 30000,
+                },
+                "fullPage": True,
+                "type": "png",
             },
-            "fullPage": True,
-            "type": "png",
-        }
+            {
+                "url": url,
+                "gotoOptions": {
+                    "waitUntil": "networkidle2",
+                    "timeout": 30000,
+                },
+                "screenshot": {
+                    "fullPage": True,
+                    "type": "png",
+                },
+            },
+            {
+                "url": url,
+                "options": {
+                    "waitUntil": "networkidle2",
+                    "timeout": 30000,
+                },
+                "fullPage": True,
+                "type": "png",
+            },
+        ]
 
-        for attempt in range(2):
+        for attempt, payload in enumerate(payloads):
             try:
                 async with async_timeout.timeout(30):
                     response = await self._session.post(
@@ -536,18 +558,7 @@ class IntegrationBlueprintApiClient:
                     raise IntegrationBlueprintApiClientCommunicationError(
                         msg
                     ) from exception
-                if attempt == 0:
-                    payload = {
-                        "url": url,
-                        "gotoOptions": {
-                            "waitUntil": "networkidle2",
-                            "timeout": 30000,
-                        },
-                        "screenshot": {
-                            "fullPage": True,
-                            "type": "png",
-                        },
-                    }
+                if attempt < len(payloads) - 1:
                     continue
                 msg = (
                     "Error fetching rendered page screenshot - "

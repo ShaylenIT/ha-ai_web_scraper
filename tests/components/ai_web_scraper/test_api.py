@@ -269,3 +269,53 @@ def test_browserless_screenshot_is_saved_to_disk(tmp_path) -> None:
         tmp_path / "scraper-entry-id.png"
     )
     assert (tmp_path / "scraper-entry-id.png").read_bytes() == b"PNGDATA"
+
+
+def test_browserless_screenshot_falls_back_on_400_bad_request() -> None:
+    class FakeResponse:
+        def __init__(self, status: int, content: bytes = b"") -> None:
+            self.status = status
+            self.headers = {"Content-Type": "image/png"}
+            self._content = content
+            self.raise_for_status = AsyncMock(
+                side_effect=aiohttp.ClientResponseError(
+                    request_info=None,
+                    history=(),
+                    status=status,
+                    message="Bad Request",
+                )
+                if status >= 400
+                else AsyncMock()
+            )
+
+        async def read(self) -> bytes:
+            return self._content
+
+    error_response = FakeResponse(status=400)
+    success_response = FakeResponse(status=200, content=b"PNGDATA")
+
+    session = AsyncMock()
+    session.post.side_effect = [
+        error_response,
+        error_response,
+        success_response,
+    ]
+
+    client = IntegrationBlueprintApiClient(
+        provider_name="Test Provider",
+        api_key="test-key",
+        model_name="gpt-4",
+        browserless_url="https://example.com/api",
+        scraper_name="Test Scraper",
+        url="https://example.com",
+        prompt="Extract text",
+        extraction_mode="dom",
+        session=session,
+        screenshot_dir=".",
+        screenshot_filename="scraper-entry-id.png",
+    )
+
+    screenshot = asyncio.run(client._fetch_browserless_page_screenshot("https://example.com"))
+
+    assert screenshot == b"PNGDATA"
+    assert session.post.await_count == 3
