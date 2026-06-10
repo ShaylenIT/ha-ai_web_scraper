@@ -10,6 +10,7 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
 )
 from homeassistant.helpers.restore_state import RestoreEntity
+from homeassistant.util import dt as dt_util
 
 from .entity import IntegrationBlueprintEntity
 
@@ -88,9 +89,12 @@ class IntegrationBlueprintSensor(
             )
 
         if self.entity_description.key == "ai_web_scraper_last_scrape":
-            return self.coordinator.data.get("attributes", {}).get(
+            last_scrape = self.coordinator.data.get("attributes", {}).get(
                 "last_scrape", self._restored_last_scrape
             )
+            if isinstance(last_scrape, str):
+                return dt_util.parse_datetime(last_scrape)
+            return last_scrape
 
         state = self.coordinator.data.get("state")
         if (
