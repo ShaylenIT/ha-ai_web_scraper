@@ -27,7 +27,11 @@ async def async_setup_entry(
     """Set up the image platform."""
     screenshot_path = hass.config.path(DOMAIN, "screenshots", f"{entry.entry_id}.png")
     async_add_entities(
-        [IntegrationBlueprintImage(entry.runtime_data.coordinator, screenshot_path)]
+        [
+            IntegrationBlueprintImage(
+                hass, entry.runtime_data.coordinator, screenshot_path
+            )
+        ]
     )
 
 
@@ -36,15 +40,28 @@ class IntegrationBlueprintImage(IntegrationBlueprintEntity, ImageEntity):
 
     def __init__(
         self,
+        hass: HomeAssistant,
         coordinator: AIWebScraperDataUpdateCoordinator,
         screenshot_path: str,
     ) -> None:
         """Initialize the image entity."""
-        super().__init__(coordinator)
+        super().__init__(hass)
+        self.coordinator = coordinator
         self._screenshot_path = Path(screenshot_path)
         self._attr_unique_id = f"{coordinator.config_entry.entry_id}_screenshot"
         self._attr_name = f"{coordinator.config_entry.title} Screenshot"
         self._attr_content_type = "image/png"
+        self._attr_device_info = {
+            "identifiers": {
+                (
+                    coordinator.config_entry.domain,
+                    coordinator.config_entry.entry_id,
+                ),
+            },
+            "name": coordinator.config_entry.title,
+            "manufacturer": "AI Web Scraper",
+            "model": "Scraper Entry",
+        }
 
     @property
     def image_last_updated(self) -> datetime | None:
