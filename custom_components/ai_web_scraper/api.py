@@ -17,7 +17,7 @@ from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 import aiohttp
 import async_timeout
 
-from .const import PROVIDER_TYPE_GEMINI, PROVIDER_TYPE_OPENAI
+from .const import LOGGER, PROVIDER_TYPE_GEMINI, PROVIDER_TYPE_OPENAI
 
 HTTP_STATUS_NOT_FOUND = 404
 MAX_STATE_CHARS = 255
@@ -303,7 +303,14 @@ class IntegrationBlueprintApiClient:
         self._set_scraper_status("waiting_for_ai")
         screenshot = None
         if self._browserless_url:
-            screenshot = await self._fetch_browserless_page_screenshot(self._url)
+            try:
+                screenshot = await self._fetch_browserless_page_screenshot(self._url)
+            except IntegrationBlueprintApiClientCommunicationError as exception:
+                LOGGER.warning(
+                    "Screenshot capture failed for %s: %s",
+                    self._url,
+                    exception,
+                )
 
         state = await self._provider_extract(page_text)
         self._set_scraper_status("processing_ai_response")
@@ -517,6 +524,38 @@ class IntegrationBlueprintApiClient:
                     )
                     await _verify_response_or_raise(response)
                     return await response.read()
+            except aiohttp.ClientResponseError as exception:
+                if exception.status == HTTP_STATUS_NOT_FOUND:
+                    msg = (
+                        "Browserless screenshot endpoint returned 404 Not Found. "
+                        "Verify your browserless_url and ensure the service "
+                        "path is /screenshot. If you are using the Home Assistant "
+                        "browserless add-on, use the add-on host instead of "
+                        "localhost (for example http://browserless:3000)."
+                    )
+                    raise IntegrationBlueprintApiClientCommunicationError(
+                        msg
+                    ) from exception
+                if attempt == 0:
+                    payload = {
+                        "url": url,
+                        "gotoOptions": {
+                            "waitUntil": "networkidle2",
+                            "timeout": 30000,
+                        },
+                        "screenshot": {
+                            "fullPage": True,
+                            "type": "png",
+                        },
+                    }
+                    continue
+                msg = (
+                    "Error fetching rendered page screenshot - "
+                    f"{exception.status} {exception.message}"
+                )
+                raise IntegrationBlueprintApiClientCommunicationError(
+                    msg
+                ) from exception
             except aiohttp.ServerDisconnectedError as exception:
                 if attempt == 0:
                     await asyncio.sleep(1)
@@ -527,23 +566,6 @@ class IntegrationBlueprintApiClient:
                 ) from exception
             except TimeoutError as exception:
                 msg = f"Timeout error fetching rendered page screenshot - {exception}"
-                raise IntegrationBlueprintApiClientCommunicationError(
-                    msg
-                ) from exception
-            except aiohttp.ClientResponseError as exception:
-                if exception.status == HTTP_STATUS_NOT_FOUND:
-                    msg = (
-                        "Browserless screenshot endpoint returned 404 Not Found. "
-                        "Verify your browserless_url and ensure the service "
-                        "path is /screenshot. If you are using the Home Assistant "
-                        "browserless add-on, use the add-on host instead of "
-                        "localhost (for example http://browserless:3000)."
-                    )
-                else:
-                    msg = (
-                        "Error fetching rendered page screenshot - "
-                        f"{exception.status} {exception.message}"
-                    )
                 raise IntegrationBlueprintApiClientCommunicationError(
                     msg
                 ) from exception
