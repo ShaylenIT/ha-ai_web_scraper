@@ -256,6 +256,7 @@ class IntegrationBlueprintApiClient:
         provider_type: str = PROVIDER_TYPE_OPENAI,
         screenshot_dir: str | None = None,
         screenshot_filename: str | None = None,
+        block_consent_modals: bool = True,
     ) -> None:
         """Initialize the scraper client."""
         self._provider_name = provider_name
@@ -272,6 +273,7 @@ class IntegrationBlueprintApiClient:
         self._scraper_status = "idle"
         self._screenshot_dir = screenshot_dir
         self._screenshot_filename = screenshot_filename
+        self._block_consent_modals = block_consent_modals
 
     def _set_scraper_status(self, status: str) -> None:
         """Update the current scraper status."""
@@ -415,6 +417,8 @@ class IntegrationBlueprintApiClient:
             },
             "bestAttempt": True,
         }
+        if self._block_consent_modals:
+            payload["blockConsentModals"] = True
 
         for attempt in range(2):
             try:
@@ -543,6 +547,10 @@ class IntegrationBlueprintApiClient:
                 "type": "png",
             },
         ]
+
+        if self._block_consent_modals:
+            for payload in payloads:
+                payload["blockConsentModals"] = True
 
         for attempt, payload in enumerate(payloads):
             try:

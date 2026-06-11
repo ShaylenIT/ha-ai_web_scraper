@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.switch import SwitchEntity, SwitchEntityDescription
 
+from .const import CONF_BLOCK_CONSENT_MODALS
 from .entity import IntegrationBlueprintEntity
 
 if TYPE_CHECKING:
@@ -17,9 +18,9 @@ if TYPE_CHECKING:
 
 ENTITY_DESCRIPTIONS = (
     SwitchEntityDescription(
-        key="ai_web_scraper",
-        name="Integration Switch",
-        icon="mdi:format-quote-close",
+        key=CONF_BLOCK_CONSENT_MODALS,
+        name="Block Cookie Banners",
+        icon="mdi:cookie-off",
     ),
 )
 
@@ -53,14 +54,29 @@ class IntegrationBlueprintSwitch(IntegrationBlueprintEntity, SwitchEntity):
     @property
     def is_on(self) -> bool:
         """Return true if the switch is on."""
-        return self.coordinator.data.get("title", "") == "foo"
+        return self.coordinator.config_entry.options.get(
+            CONF_BLOCK_CONSENT_MODALS,
+            self.coordinator.config_entry.data.get(CONF_BLOCK_CONSENT_MODALS, True),
+        )
 
     async def async_turn_on(self, **_: Any) -> None:
         """Turn on the switch."""
-        await self.coordinator.config_entry.runtime_data.client.async_set_title("bar")
-        await self.coordinator.async_request_refresh()
+        new_options = {
+            **self.coordinator.config_entry.options,
+            CONF_BLOCK_CONSENT_MODALS: True,
+        }
+        self.hass.config_entries.async_update_entry(
+            self.coordinator.config_entry,
+            options=new_options,
+        )
 
     async def async_turn_off(self, **_: Any) -> None:
         """Turn off the switch."""
-        await self.coordinator.config_entry.runtime_data.client.async_set_title("foo")
-        await self.coordinator.async_request_refresh()
+        new_options = {
+            **self.coordinator.config_entry.options,
+            CONF_BLOCK_CONSENT_MODALS: False,
+        }
+        self.hass.config_entries.async_update_entry(
+            self.coordinator.config_entry,
+            options=new_options,
+        )

@@ -91,6 +91,7 @@ async def test_provider_list_populates_in_scraper_form(hass: HomeAssistant) -> N
     """Test that available providers appear in the scraper form."""
     provider_entry = ConfigEntry(
         version=1,
+        minor_version=1,
         domain=DOMAIN,
         title="Test Provider",
         data={
@@ -123,6 +124,7 @@ async def test_add_scraper_with_provider(hass: HomeAssistant) -> None:
     """Test that a scraper can be created when a provider exists."""
     provider_entry = ConfigEntry(
         version=1,
+        minor_version=1,
         domain=DOMAIN,
         title="Test Provider",
         data={
@@ -165,12 +167,14 @@ async def test_add_scraper_with_provider(hass: HomeAssistant) -> None:
     assert result["data"][CONF_PROVIDER_ID] == provider_entry.entry_id
     assert result["data"][CONF_SCRAPER_NAME] == "Test Scraper"
     assert result["data"][CONF_INTERVAL_SECONDS] == 0
+    assert result["data"][CONF_BLOCK_CONSENT_MODALS] is True
 
 
 async def test_provider_reconfigure_updates_entry(hass: HomeAssistant) -> None:
     """Test that provider options flow updates provider data."""
     provider_entry = ConfigEntry(
         version=1,
+        minor_version=1,
         domain=DOMAIN,
         title="Test Provider",
         data={
@@ -208,6 +212,7 @@ async def test_scraper_reconfigure_updates_entry(hass: HomeAssistant) -> None:
     """Test that scraper options flow updates scraper data."""
     provider_entry = ConfigEntry(
         version=1,
+        minor_version=1,
         domain=DOMAIN,
         title="Test Provider",
         data={
@@ -224,6 +229,7 @@ async def test_scraper_reconfigure_updates_entry(hass: HomeAssistant) -> None:
 
     scraper_entry = ConfigEntry(
         version=1,
+        minor_version=1,
         domain=DOMAIN,
         title="Test Scraper",
         data={
@@ -253,6 +259,7 @@ async def test_scraper_reconfigure_updates_entry(hass: HomeAssistant) -> None:
             CONF_URL: "https://example.org",
             CONF_PROMPT: "Update text",
             CONF_EXTRACTION_MODE: "browser_based",
+            CONF_BLOCK_CONSENT_MODALS: False,
         },
     )
 
@@ -261,3 +268,4 @@ async def test_scraper_reconfigure_updates_entry(hass: HomeAssistant) -> None:
     assert scraper_entry.data[CONF_URL] == "https://example.org"
     assert scraper_entry.data[CONF_EXTRACTION_MODE] == "browser_based"
     assert scraper_entry.data[CONF_INTERVAL_SECONDS] == 30
+    assert scraper_entry.options[CONF_BLOCK_CONSENT_MODALS] is False

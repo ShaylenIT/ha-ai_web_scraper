@@ -29,6 +29,7 @@ from .const import (
     CONF_PROVIDER_TYPE,
     CONF_SCRAPER_NAME,
     CONF_URL,
+    CONF_BLOCK_CONSENT_MODALS,
     DOMAIN,
     ENTRY_TYPE_PROVIDER,
     ENTRY_TYPE_SCRAPER,
@@ -70,6 +71,11 @@ def _build_entry_client(
     screenshot_dir = hass.config.path(DOMAIN, "screenshots")
     Path(screenshot_dir).mkdir(parents=True, exist_ok=True)
 
+    block_consent_modals = entry.options.get(
+        CONF_BLOCK_CONSENT_MODALS,
+        entry.data.get(CONF_BLOCK_CONSENT_MODALS, True),
+    )
+
     return IntegrationBlueprintApiClient(
         provider_name=provider_name,
         api_key=api_key,
@@ -83,6 +89,7 @@ def _build_entry_client(
         session=async_get_clientsession(hass),
         screenshot_dir=screenshot_dir,
         screenshot_filename=f"{entry.entry_id}.png",
+        block_consent_modals=block_consent_modals,
     )
 
 
@@ -95,6 +102,7 @@ PLATFORMS: list[Platform] = [
     Platform.BUTTON,
     Platform.NUMBER,
     Platform.IMAGE,
+    Platform.SWITCH,
 ]
 
 
@@ -133,6 +141,10 @@ async def async_setup_entry(
     )
 
     await coordinator.async_config_entry_first_refresh()
+
+    entry.async_on_unload(
+        entry.add_update_listener(async_reload_entry)
+    )
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 

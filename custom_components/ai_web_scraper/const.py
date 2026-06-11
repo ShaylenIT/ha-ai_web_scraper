@@ -19,6 +19,7 @@ CONF_URL = "url"
 CONF_PROMPT = "prompt"
 CONF_EXTRACTION_MODE = "extraction_mode"
 CONF_INTERVAL_SECONDS = "interval_seconds"
+CONF_BLOCK_CONSENT_MODALS = "block_consent_modals"
 
 PROVIDER_TYPE_OPENAI = "openai"
 PROVIDER_TYPE_GEMINI = "gemini"

@@ -29,6 +29,10 @@ from custom_components.ai_web_scraper.button import (
 from custom_components.ai_web_scraper.button import (
     IntegrationBlueprintButton,
 )
+from custom_components.ai_web_scraper.switch import (
+    ENTITY_DESCRIPTIONS as SWITCH_ENTITY_DESCRIPTIONS,
+    IntegrationBlueprintSwitch,
+)
 from custom_components.ai_web_scraper.const import (
     CONF_API_KEY,
     CONF_ENTRY_TYPE,
@@ -59,6 +63,7 @@ async def test_coordinator_fetches_scrape_data(hass: HomeAssistant) -> None:
     """Test that coordinator fetches scraper data from runtime_data.client."""
     entry = ConfigEntry(
         version=1,
+        minor_version=1,
         domain=DOMAIN,
         title="Test Scraper",
         data={
@@ -114,6 +119,7 @@ async def test_coordinator_logs_scrape_failure(
     """Test that coordinator logs failures when scraper data fetch fails."""
     entry = ConfigEntry(
         version=1,
+        minor_version=1,
         domain=DOMAIN,
         title="Test Scraper",
         data={
@@ -172,6 +178,7 @@ async def test_refresh_button_requests_refresh() -> None:
     """Test that pressing the refresh button requests coordinator refresh."""
     entry = ConfigEntry(
         version=1,
+        minor_version=1,
         domain=DOMAIN,
         title="Test Scraper",
         data={
@@ -204,6 +211,7 @@ def test_sensor_reports_coordinator_state() -> None:
     """Test that the sensor reports the coordinator state and attributes."""
     entry = ConfigEntry(
         version=1,
+        minor_version=1,
         domain=DOMAIN,
         title="Test Scraper",
         data={
@@ -242,6 +250,7 @@ def test_last_scrape_sensor_reports_timestamp() -> None:
     """Test that the last scrape sensor reports the last scrape timestamp."""
     entry = ConfigEntry(
         version=1,
+        minor_version=1,
         domain=DOMAIN,
         title="Test Scraper",
         data={
@@ -280,6 +289,7 @@ def test_interval_number_reports_minutes() -> None:
     """Test that the scrape interval number reports minutes."""
     entry = ConfigEntry(
         version=1,
+        minor_version=1,
         domain=DOMAIN,
         title="Test Scraper",
         data={
@@ -317,6 +327,7 @@ def test_status_binary_sensor_failure_state() -> None:
     """Test the status binary sensor failure state and attributes."""
     entry = ConfigEntry(
         version=1,
+        minor_version=1,
         domain=DOMAIN,
         title="Test Scraper",
         data={
@@ -613,6 +624,7 @@ async def test_setup_entry_zero_interval_is_manual_only(
     """Test that zero interval scrapers are manual-only and do not auto-schedule."""
     provider_entry = ConfigEntry(
         version=1,
+        minor_version=1,
         domain=DOMAIN,
         title="Test Provider",
         data={
@@ -629,6 +641,7 @@ async def test_setup_entry_zero_interval_is_manual_only(
 
     scraper_entry = ConfigEntry(
         version=1,
+        minor_version=1,
         domain=DOMAIN,
         title="Test Scraper",
         data={
@@ -680,6 +693,7 @@ async def test_setup_entry_creates_scraper_entities_and_initial_scrape(
     """Test that scraper setup creates entities and performs an initial scrape."""
     provider_entry = ConfigEntry(
         version=1,
+        minor_version=1,
         domain=DOMAIN,
         title="Test Provider",
         data={
@@ -696,6 +710,7 @@ async def test_setup_entry_creates_scraper_entities_and_initial_scrape(
 
     scraper_entry = ConfigEntry(
         version=1,
+        minor_version=1,
         domain=DOMAIN,
         title="Test Scraper",
         data={
@@ -816,3 +831,44 @@ async def test_scraper_privacy_does_not_persist_files() -> None:
     assert new_files == known_files
     assert not hasattr(client, "screenshot_path")
     assert not hasattr(client, "html_file")
+
+
+async def test_block_consent_modals_switch(hass: HomeAssistant) -> None:
+    """Test the block consent modals switch entity behavior."""
+    entry = ConfigEntry(
+        version=1,
+        minor_version=1,
+        domain=DOMAIN,
+        title="Test Scraper",
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_SCRAPER,
+            CONF_PROVIDER_ID: "provider-id",
+            CONF_SCRAPER_NAME: "Test Scraper",
+            CONF_URL: "https://example.com",
+            CONF_PROMPT: "Extract text",
+            CONF_EXTRACTION_MODE: "dom",
+            CONF_INTERVAL_SECONDS: 0,
+        },
+        source="user",
+        options={},
+        entry_id="scraper-entry-id",
+    )
+    entry.add_to_hass(hass)
+
+    coordinator = DummyCoordinator(entry, {})
+    switch = IntegrationBlueprintSwitch(
+        coordinator=coordinator,
+        entity_description=SWITCH_ENTITY_DESCRIPTIONS[0],
+    )
+
+    # Defaults to True
+    assert switch.is_on is True
+
+    # Turn off
+    await switch.async_turn_off()
+    assert entry.options["block_consent_modals"] is False
+
+    # Turn on
+    await switch.async_turn_on()
+    assert entry.options["block_consent_modals"] is True
+
