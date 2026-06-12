@@ -532,6 +532,13 @@ class IntegrationBlueprintApiClient:
 
         The Browserless /screenshot endpoint is asked to wait for the page to
         settle by using gotoOptions.waitUntil=networkidle2 and fullPage=True.
+
+        When block_consent_modals is enabled, the same self-contained JS snippet
+        used for page-text fetching is injected via addScriptTag. This removes
+        fixed/sticky high-z-index overlays before the screenshot is taken.
+
+        Note: blockConsentModals is a cloud/enterprise-only Browserless feature
+        that causes 400 Bad Request on self-hosted instances and is not used.
         """
         browserless_url = self._normalize_browserless_url(self._browserless_url)
         parsed_url = urlparse(browserless_url)
@@ -585,7 +592,11 @@ class IntegrationBlueprintApiClient:
 
         if self._block_consent_modals:
             for payload in payloads:
-                payload["blockConsentModals"] = True
+                payload["addScriptTag"] = [{"content": self._OVERLAY_BLOCK_SCRIPT}]
+            LOGGER.debug(
+                "Overlay blocking enabled for %s — injecting z-index sweep script (screenshot).",
+                url,
+            )
 
         for attempt, payload in enumerate(payloads):
             try:
