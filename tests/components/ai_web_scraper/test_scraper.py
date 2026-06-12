@@ -6,7 +6,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from aiohttp.client_exceptions import ClientConnectorError
@@ -52,7 +52,7 @@ from custom_components.ai_web_scraper.coordinator import (
     AIWebScraperDataUpdateCoordinator,
 )
 from custom_components.ai_web_scraper.data import IntegrationBlueprintData
-from custom_components.ai_web_scraper.number import IntegrationBlueprintNumber
+from custom_components.ai_web_scraper.image import IntegrationBlueprintImage
 from custom_components.ai_web_scraper.sensor import IntegrationBlueprintSensor
 
 if TYPE_CHECKING:
@@ -244,6 +244,43 @@ def test_sensor_reports_coordinator_state() -> None:
     assert sensor.name == "Test Scraper Data"
     assert sensor.native_value == "parsed result"
     assert sensor.extra_state_attributes == state["attributes"]
+
+
+def test_screenshot_image_reports_path(tmp_path: Path) -> None:
+    """Test that the screenshot image entity exposes its config path."""
+    config_dir = tmp_path / "config"
+    screenshot_path = (
+        config_dir / DOMAIN / "screenshots" / "01KTW9TEN0R79J4XDQ9E319R5Y.png"
+    )
+    screenshot_path.parent.mkdir(parents=True)
+
+    entry = ConfigEntry(
+        version=1,
+        minor_version=1,
+        domain=DOMAIN,
+        title="Test Scraper",
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_SCRAPER,
+            CONF_PROVIDER_ID: "provider-id",
+            CONF_SCRAPER_NAME: "Test Scraper",
+            CONF_URL: "https://example.com",
+            CONF_PROMPT: "Extract text",
+            CONF_EXTRACTION_MODE: "dom",
+            CONF_INTERVAL_SECONDS: 0,
+        },
+        source="user",
+        options={},
+        entry_id="01KTW9TEN0R79J4XDQ9E319R5Y",
+    )
+
+    hass = MagicMock()
+    hass.config.config_dir = str(config_dir)
+    coordinator = DummyCoordinator(entry, {})
+    image = IntegrationBlueprintImage(hass, coordinator, str(screenshot_path))
+
+    assert image.extra_state_attributes == {
+        "path": f"/config/{DOMAIN}/screenshots/01KTW9TEN0R79J4XDQ9E319R5Y.png"
+    }
 
 
 def test_last_scrape_sensor_reports_timestamp() -> None:

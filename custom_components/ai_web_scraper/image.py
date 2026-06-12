@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.image import ImageEntity
 from homeassistant.helpers.entity import EntityDescription
@@ -71,6 +71,14 @@ class IntegrationBlueprintImage(IntegrationBlueprintEntity, ImageEntity):
     def available(self) -> bool:
         """Return whether the screenshot is available."""
         return self._screenshot_path.is_file()
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return entity specific state attributes."""
+        relative_path = self._screenshot_path.relative_to(
+            Path(self.hass.config.config_dir)
+        )
+        return {"path": f"/config/{relative_path.as_posix()}"}
 
     def image(self) -> bytes | None:
         """Return the last saved screenshot image."""
