@@ -396,6 +396,27 @@ class IntegrationBlueprintApiClient:
         msg = "Unable to fetch page content"
         raise IntegrationBlueprintApiClientError(msg)
 
+    # JS injected via addScriptTag when overlay blocking is enabled (Option 1).
+    # Sweeps all elements after page load and removes any that are position:fixed
+    # or position:sticky with z-index > 99. Also unlocks scroll on <body>/<html>.
+    # Safe structural tags (HEADER, NAV, FOOTER, etc.) are excluded.
+    # See overlay-block-spec.md for the full option comparison.
+    _OVERLAY_BLOCK_SCRIPT = (
+        "(function(){"
+        "document.body.style.overflow='';"
+        "document.documentElement.style.overflow='';"
+        "var SAFE=new Set(['HEADER','NAV','FOOTER','SCRIPT','STYLE','LINK']);"
+        "document.querySelectorAll('*').forEach(function(el){"
+        "if(SAFE.has(el.tagName))return;"
+        "var s=window.getComputedStyle(el);"
+        "var z=parseInt(s.zIndex,10);"
+        "if((s.position==='fixed'||s.position==='sticky')&&!isNaN(z)&&z>99){"
+        "el.remove();"
+        "}"
+        "});"
+        "})();"
+    )
+
     async def _fetch_browserless_page_text(self, url: str) -> str:
         """
         Fetch rendered page content via browserless.
@@ -403,10 +424,14 @@ class IntegrationBlueprintApiClient:
         The Browserless /content endpoint is asked to wait for the page to settle
         by using gotoOptions.waitUntil=networkidle2 and bestAttempt=True.
 
-        Note: blockConsentModals is a cloud/enterprise-only Browserless feature.
-        Self-hosted community instances return 400 Bad Request when it is included
-        in either the JSON body or as a URL query parameter, so it is intentionally
-        omitted from the request regardless of the switch state.
+        When block_consent_modals is enabled, a self-contained JS snippet is
+        injected via addScriptTag (Option 1 from overlay-block-spec.md). It sweeps
+        the DOM for fixed/sticky high-z-index elements and removes them, covering
+        cookie banners, newsletter popups, login walls, and any other viewport-
+        blocking overlay — without requiring a maintained selector list.
+
+        Note: blockConsentModals is a cloud/enterprise-only Browserless feature
+        that causes 400 Bad Request on self-hosted instances and is not used.
         """
         browserless_url = self._normalize_browserless_url(self._browserless_url)
         parsed_url = urlparse(browserless_url)
@@ -414,13 +439,7 @@ class IntegrationBlueprintApiClient:
             query=urlencode(parse_qs(parsed_url.query), doseq=True)
         )
 
-        if self._block_consent_modals:
-            LOGGER.debug(
-                "Block Cookie Banners is enabled but blockConsentModals is not "
-                "supported by self-hosted Browserless instances and will be skipped."
-            )
-
-        payload = {
+        payload: dict[str, Any] = {
             "url": url,
             "gotoOptions": {
                 "waitUntil": "networkidle2",
@@ -428,6 +447,13 @@ class IntegrationBlueprintApiClient:
             },
             "bestAttempt": True,
         }
+
+        if self._block_consent_modals:
+            payload["addScriptTag"] = [{"content": self._OVERLAY_BLOCK_SCRIPT}]
+            LOGGER.debug(
+                "Overlay blocking enabled for %s — injecting z-index sweep script.",
+                url,
+            )
 
         for attempt in range(2):
             try:
