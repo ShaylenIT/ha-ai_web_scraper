@@ -402,12 +402,23 @@ class IntegrationBlueprintApiClient:
 
         The Browserless /content endpoint is asked to wait for the page to settle
         by using gotoOptions.waitUntil=networkidle2 and bestAttempt=True.
+
+        Note: blockConsentModals is a cloud/enterprise-only Browserless feature.
+        Self-hosted community instances return 400 Bad Request when it is included
+        in either the JSON body or as a URL query parameter, so it is intentionally
+        omitted from the request regardless of the switch state.
         """
         browserless_url = self._normalize_browserless_url(self._browserless_url)
         parsed_url = urlparse(browserless_url)
         parsed_url = parsed_url._replace(
             query=urlencode(parse_qs(parsed_url.query), doseq=True)
         )
+
+        if self._block_consent_modals:
+            LOGGER.debug(
+                "Block Cookie Banners is enabled but blockConsentModals is not "
+                "supported by self-hosted Browserless instances and will be skipped."
+            )
 
         payload = {
             "url": url,
@@ -417,14 +428,6 @@ class IntegrationBlueprintApiClient:
             },
             "bestAttempt": True,
         }
-
-        # blockConsentModals is a browser launch option; it must be passed as a
-        # URL query parameter rather than a JSON body field. Browserless v2 will
-        # return 400 Bad Request if unknown keys appear at the root of the body.
-        if self._block_consent_modals:
-            qs = parse_qs(parsed_url.query)
-            qs["blockConsentModals"] = ["true"]
-            parsed_url = parsed_url._replace(query=urlencode(qs, doseq=True))
 
         for attempt in range(2):
             try:
