@@ -21,7 +21,6 @@ from .const import (
     CONF_PROVIDER_TYPE,
     CONF_SCRAPER_NAME,
     CONF_URL,
-    CONF_BLOCK_CONSENT_MODALS,
     DOMAIN,
     ENTRY_TYPE_PROVIDER,
     ENTRY_TYPE_SCRAPER,
@@ -152,10 +151,6 @@ class AIWebScraperConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 CONF_EXTRACTION_MODE,
                 default=(user_input or {}).get(CONF_EXTRACTION_MODE, vol.UNDEFINED),
             ): vol.In(EXTRACTION_MODES),
-            vol.Optional(
-                CONF_BLOCK_CONSENT_MODALS,
-                default=(user_input or {}).get(CONF_BLOCK_CONSENT_MODALS, True),
-            ): selector.BooleanSelector(),
         }
 
         if provider_options:
@@ -249,7 +244,6 @@ class AIWebScraperConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_PROMPT: user_input[CONF_PROMPT],
                         CONF_EXTRACTION_MODE: user_input[CONF_EXTRACTION_MODE],
                         CONF_INTERVAL_SECONDS: 0,
-                        CONF_BLOCK_CONSENT_MODALS: user_input.get(CONF_BLOCK_CONSENT_MODALS, True),
                     },
                 )
 
@@ -412,10 +406,6 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
                             CONF_PROMPT: user_input[CONF_PROMPT],
                             CONF_EXTRACTION_MODE: user_input[CONF_EXTRACTION_MODE],
                         },
-                        options={
-                            **self._config_entry.options,
-                            CONF_BLOCK_CONSENT_MODALS: user_input.get(CONF_BLOCK_CONSENT_MODALS, True),
-                        },
                     )
                     return self.async_create_entry(title="done", data={})
             except Exception:  # pylint: disable=broad-except  # noqa: BLE001
@@ -450,13 +440,6 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
                     CONF_EXTRACTION_MODE, vol.UNDEFINED
                 ),
             ): vol.In(EXTRACTION_MODES),
-            vol.Optional(
-                CONF_BLOCK_CONSENT_MODALS,
-                default=self._config_entry.options.get(
-                    CONF_BLOCK_CONSENT_MODALS,
-                    self._config_entry.data.get(CONF_BLOCK_CONSENT_MODALS, True),
-                ),
-            ): selector.BooleanSelector(),
         }
 
         if provider_options:

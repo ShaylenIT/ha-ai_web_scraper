@@ -417,8 +417,14 @@ class IntegrationBlueprintApiClient:
             },
             "bestAttempt": True,
         }
+
+        # blockConsentModals is a browser launch option; it must be passed as a
+        # URL query parameter rather than a JSON body field. Browserless v2 will
+        # return 400 Bad Request if unknown keys appear at the root of the body.
         if self._block_consent_modals:
-            payload["blockConsentModals"] = True
+            qs = parse_qs(parsed_url.query)
+            qs["blockConsentModals"] = ["true"]
+            parsed_url = parsed_url._replace(query=urlencode(qs, doseq=True))
 
         for attempt in range(2):
             try:
