@@ -19,8 +19,8 @@ if TYPE_CHECKING:
 ENTITY_DESCRIPTIONS = (
     SwitchEntityDescription(
         key=CONF_BLOCK_CONSENT_MODALS,
-        name="Block Cookie Banners",
-        icon="mdi:cookie-off",
+        name="Block Overlays",
+        icon="mdi:window-closed-variant",
     ),
 )
 

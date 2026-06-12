@@ -321,7 +321,7 @@ class IntegrationBlueprintApiClient:
 
         screenshot_path = None
         if screenshot is not None and self._screenshot_dir:
-            screenshot_path = self._save_screenshot(screenshot)
+            screenshot_path = await self._save_screenshot(screenshot)
 
         attributes = {
             "url": self._url,
@@ -686,16 +686,19 @@ class IntegrationBlueprintApiClient:
         msg = "Unable to fetch rendered page screenshot"
         raise IntegrationBlueprintApiClientError(msg)
 
-    def _save_screenshot(self, screenshot: bytes) -> str:
+    async def _save_screenshot(self, screenshot: bytes) -> str:
         if not self._screenshot_dir or not self._screenshot_filename:
             raise IntegrationBlueprintApiClientError(
                 "Screenshot storage location is not configured."
             )
 
-        screenshot_path = Path(self._screenshot_dir) / self._screenshot_filename
-        screenshot_path.parent.mkdir(parents=True, exist_ok=True)
-        screenshot_path.write_bytes(screenshot)
-        return str(screenshot_path)
+        def _write() -> str:
+            screenshot_path = Path(self._screenshot_dir) / self._screenshot_filename
+            screenshot_path.parent.mkdir(parents=True, exist_ok=True)
+            screenshot_path.write_bytes(screenshot)
+            return str(screenshot_path)
+
+        return await asyncio.to_thread(_write)
 
     def _get_provider(self) -> Provider:
         if self._provider_type == PROVIDER_TYPE_GEMINI:
