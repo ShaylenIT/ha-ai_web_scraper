@@ -144,7 +144,7 @@ async def async_setup_entry(
     await coordinator.async_config_entry_first_refresh()
 
     entry.async_on_unload(
-        entry.add_update_listener(async_reload_entry)
+        entry.add_update_listener(async_on_scraper_config_update)
     )
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -178,15 +178,29 @@ async def async_reload_provider_dependents(
                 )
 
 
-async def async_reload_entry(
+async def async_on_scraper_config_update(
     hass: HomeAssistant,
     entry: IntegrationBlueprintConfigEntry,
 ) -> None:
-    """Reload config entry."""
-    try:
-        await hass.config_entries.async_reload(entry.entry_id)
-    except Exception:  # pylint: disable=broad-except  # noqa: BLE001
-        LOGGER.exception(
-            "Failed reloading config entry %s after options update",
-            entry.entry_id,
+    """Handle scraper config updates without full reload.
+
+    Rebuilds the API client in-place so entities stay available.
+    The number entity (scrape interval) already updates the coordinator
+    interval directly, so no extra work is needed for that case.
+    """
+    runtime_data = entry.runtime_data
+    if runtime_data is None:
+        return
+
+    # Rebuild the client with the updated config/options
+    runtime_data.client = _build_entry_client(hass, entry)
+
+    # If the interval changed, the number entity already set it on the
+    # coordinator. If it hasn't (e.g. options flow change), sync it here.
+    interval_seconds = entry.data.get(CONF_INTERVAL_SECONDS, 0)
+    if interval_seconds and interval_seconds > 0:
+        runtime_data.coordinator.update_interval = timedelta(
+            seconds=int(interval_seconds)
         )
+    else:
+        runtime_data.coordinator.update_interval = None
