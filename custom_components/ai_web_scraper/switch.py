@@ -69,6 +69,7 @@ class IntegrationBlueprintSwitch(IntegrationBlueprintEntity, SwitchEntity):
             self.coordinator.config_entry,
             options=new_options,
         )
+        self.async_write_ha_state()
 
     async def async_turn_off(self, **_: Any) -> None:
         """Turn off the switch."""
@@ -80,3 +81,4 @@ class IntegrationBlueprintSwitch(IntegrationBlueprintEntity, SwitchEntity):
             self.coordinator.config_entry,
             options=new_options,
         )
+        self.async_write_ha_state()
