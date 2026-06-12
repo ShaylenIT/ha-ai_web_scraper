@@ -23,7 +23,10 @@
     "entity": {
         "sensor": {
             "ai_web_scraper_data": {
-                "name": "Scraper Data"
+                "name": "Latest Data"
+            },
+            "ai_web_scraper_previous_data": {
+                "name": "Previous Data"
             },
             "ai_web_scraper_status": {
                 "name": "Scraper Status"

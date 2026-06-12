@@ -24,10 +24,25 @@ class AIWebScraperDataUpdateCoordinator(DataUpdateCoordinator):
 
     config_entry: IntegrationBlueprintConfigEntry
 
+    @staticmethod
+    def _get_display_state(data: dict[str, Any]) -> str | None:
+        """Return the value shown by the latest data sensor."""
+        state = data.get("state")
+        if state is None and data.get("last_attempt_status") == "failure":
+            return data.get("error_message")
+        return state
+
     async def _async_update_data(self) -> Any:
         """Update data via library."""
         try:
-            return await self.config_entry.runtime_data.client.async_get_data()
+            new_data = await self.config_entry.runtime_data.client.async_get_data()
+            previous_state = None
+            if self.data:
+                previous_state = self.data.get("previous_state")
+            if new_data.get("last_attempt_status") == "success" and self.data:
+                previous_state = self._get_display_state(self.data)
+            new_data["previous_state"] = previous_state
+            return new_data
         except IntegrationBlueprintApiClientAuthenticationError as exception:
             raise ConfigEntryAuthFailed(exception) from exception
         except IntegrationBlueprintApiClientError as exception:
@@ -35,7 +50,7 @@ class AIWebScraperDataUpdateCoordinator(DataUpdateCoordinator):
                 "Scraper data fetch failed for %s",
                 self.config_entry.title,
             )
-            return {
+            failure_data = {
                 "state": None,
                 "attributes": {
                     "url": self.config_entry.data.get(CONF_URL, ""),
@@ -52,3 +67,6 @@ class AIWebScraperDataUpdateCoordinator(DataUpdateCoordinator):
                 "error_message": str(exception),
                 "last_attempt_status": "failure",
             }
+            if self.data:
+                failure_data["previous_state"] = self.data.get("previous_state")
+            return failure_data

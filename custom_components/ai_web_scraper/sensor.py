@@ -24,8 +24,13 @@ if TYPE_CHECKING:
 ENTITY_DESCRIPTIONS = (
     SensorEntityDescription(
         key="ai_web_scraper_data",
-        name="Scraper Data",
+        name="Scraper Latest Data",
         icon="mdi:text-box",
+    ),
+    SensorEntityDescription(
+        key="ai_web_scraper_previous_data",
+        name="Scraper Previous Data",
+        icon="mdi:text-box-outline",
     ),
     SensorEntityDescription(
         key="ai_web_scraper_status",
@@ -95,6 +100,9 @@ class IntegrationBlueprintSensor(
             if isinstance(last_scrape, str):
                 return dt_util.parse_datetime(last_scrape)
             return last_scrape
+
+        if self.entity_description.key == "ai_web_scraper_previous_data":
+            return self.coordinator.data.get("previous_state")
 
         state = self.coordinator.data.get("state")
         if (

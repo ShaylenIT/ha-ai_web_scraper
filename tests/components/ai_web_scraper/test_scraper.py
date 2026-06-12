@@ -111,6 +111,70 @@ async def test_coordinator_fetches_scrape_data(hass: HomeAssistant) -> None:
     assert coordinator.data["state"] == "hello"
     assert coordinator.data["attributes"]["url"] == "https://example.com"
     assert coordinator.data["last_attempt_status"] == "success"
+    assert coordinator.data["previous_state"] is None
+
+
+async def test_coordinator_copies_latest_to_previous_on_scrape(
+    hass: HomeAssistant,
+) -> None:
+    """Test that a successful scrape copies latest data to previous data."""
+    entry = ConfigEntry(
+        version=1,
+        minor_version=1,
+        domain=DOMAIN,
+        title="Test Scraper",
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_SCRAPER,
+            CONF_PROVIDER_ID: "provider-id",
+            CONF_SCRAPER_NAME: "Test Scraper",
+            CONF_URL: "https://example.com",
+            CONF_PROMPT: "Extract text",
+            CONF_EXTRACTION_MODE: "dom",
+            CONF_INTERVAL_SECONDS: 0,
+        },
+        source="user",
+        options={},
+        entry_id="scraper-entry-id",
+    )
+    entry.add_to_hass(hass)
+
+    coordinator = AIWebScraperDataUpdateCoordinator(
+        hass=hass,
+        logger=LOGGER,
+        name="Test Scraper",
+        update_interval=None,
+    )
+    coordinator.config_entry = entry
+
+    client = AsyncMock()
+    client.async_get_data.side_effect = [
+        {
+            "state": "first result",
+            "attributes": {"url": "https://example.com"},
+            "error_message": "",
+            "last_attempt_status": "success",
+        },
+        {
+            "state": "second result",
+            "attributes": {"url": "https://example.com"},
+            "error_message": "",
+            "last_attempt_status": "success",
+        },
+    ]
+
+    entry.runtime_data = IntegrationBlueprintData(
+        client=client,
+        integration=None,
+        coordinator=coordinator,
+    )
+
+    await coordinator.async_config_entry_first_refresh()
+    assert coordinator.data["state"] == "first result"
+    assert coordinator.data["previous_state"] is None
+
+    await coordinator.async_refresh()
+    assert coordinator.data["state"] == "second result"
+    assert coordinator.data["previous_state"] == "first result"
 
 
 async def test_coordinator_logs_scrape_failure(
@@ -237,13 +301,52 @@ def test_sensor_reports_coordinator_state() -> None:
         coordinator=coordinator,
         entity_description=SensorEntityDescription(
             key="ai_web_scraper_data",
-            name="Scraper Data",
+            name="Scraper Latest Data",
         ),
     )
 
-    assert sensor.name == "Test Scraper Data"
+    assert sensor.name == "Test Scraper Latest Data"
     assert sensor.native_value == "parsed result"
     assert sensor.extra_state_attributes == state["attributes"]
+
+
+def test_previous_data_sensor_reports_coordinator_previous_state() -> None:
+    """Test that the previous data sensor reports the coordinator previous state."""
+    entry = ConfigEntry(
+        version=1,
+        minor_version=1,
+        domain=DOMAIN,
+        title="Test Scraper",
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_SCRAPER,
+            CONF_PROVIDER_ID: "provider-id",
+            CONF_SCRAPER_NAME: "Test Scraper",
+            CONF_URL: "https://example.com",
+            CONF_PROMPT: "Extract text",
+            CONF_EXTRACTION_MODE: "dom",
+            CONF_INTERVAL_SECONDS: 0,
+        },
+        source="user",
+        options={},
+        entry_id="scraper-entry-id",
+    )
+
+    state = {
+        "state": "latest result",
+        "previous_state": "older result",
+        "attributes": {"url": "https://example.com"},
+    }
+    coordinator = DummyCoordinator(entry, state)
+    sensor = IntegrationBlueprintSensor(
+        coordinator=coordinator,
+        entity_description=SensorEntityDescription(
+            key="ai_web_scraper_previous_data",
+            name="Scraper Previous Data",
+        ),
+    )
+
+    assert sensor.name == "Test Scraper Previous Data"
+    assert sensor.native_value == "older result"
 
 
 def test_screenshot_image_reports_path(tmp_path: Path) -> None:
