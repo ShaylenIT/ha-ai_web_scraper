@@ -140,6 +140,7 @@ async def async_setup_entry(
         coordinator=coordinator,
     )
 
+    await coordinator.async_load_from_storage()
     await coordinator.async_config_entry_first_refresh()
 
     entry.async_on_unload(

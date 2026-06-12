@@ -9,7 +9,6 @@ from homeassistant.components.sensor import (
     SensorEntity,
     SensorEntityDescription,
 )
-from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.util import dt as dt_util
 
 from .entity import IntegrationBlueprintEntity
@@ -61,9 +60,7 @@ async def async_setup_entry(
     )
 
 
-class IntegrationBlueprintSensor(
-    IntegrationBlueprintEntity, SensorEntity, RestoreEntity
-):
+class IntegrationBlueprintSensor(IntegrationBlueprintEntity, SensorEntity):
     """ai_web_scraper Sensor class."""
 
     def __init__(
@@ -73,17 +70,6 @@ class IntegrationBlueprintSensor(
     ) -> None:
         """Initialize the sensor class."""
         super().__init__(coordinator, entity_description)
-        self._restored_last_scrape: str | None = None
-
-    async def async_added_to_hass(self) -> None:
-        """Restore the last scrape value after restart."""
-        await super().async_added_to_hass()
-        if self.entity_description.key != "ai_web_scraper_last_scrape":
-            return
-
-        last_state = await self.async_get_last_state()
-        if last_state is not None and last_state.state not in (None, "", "unknown"):
-            self._restored_last_scrape = last_state.state
 
     @property
     def native_value(self) -> str | None:
@@ -94,9 +80,7 @@ class IntegrationBlueprintSensor(
             )
 
         if self.entity_description.key == "ai_web_scraper_last_scrape":
-            last_scrape = self.coordinator.data.get("attributes", {}).get(
-                "last_scrape", self._restored_last_scrape
-            )
+            last_scrape = self.coordinator.data.get("attributes", {}).get("last_scrape")
             if isinstance(last_scrape, str):
                 return dt_util.parse_datetime(last_scrape)
             return last_scrape

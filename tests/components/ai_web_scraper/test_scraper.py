@@ -177,6 +177,114 @@ async def test_coordinator_copies_latest_to_previous_on_scrape(
     assert coordinator.data["previous_state"] == "first result"
 
 
+async def test_coordinator_loads_stored_data_before_refresh(
+    hass: HomeAssistant,
+) -> None:
+    """Test that stored scrape state is restored before the first refresh."""
+    entry = ConfigEntry(
+        version=1,
+        minor_version=1,
+        domain=DOMAIN,
+        title="Test Scraper",
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_SCRAPER,
+            CONF_PROVIDER_ID: "provider-id",
+            CONF_SCRAPER_NAME: "Test Scraper",
+            CONF_URL: "https://example.com",
+            CONF_PROMPT: "Extract text",
+            CONF_EXTRACTION_MODE: "dom",
+            CONF_INTERVAL_SECONDS: 0,
+        },
+        source="user",
+        options={},
+        entry_id="scraper-entry-id",
+    )
+    entry.add_to_hass(hass)
+
+    coordinator = AIWebScraperDataUpdateCoordinator(
+        hass=hass,
+        logger=LOGGER,
+        name="Test Scraper",
+        update_interval=None,
+    )
+    coordinator.config_entry = entry
+
+    stored = {
+        "state": "stored latest",
+        "previous_state": "stored previous",
+        "attributes": {"last_scrape": "2026-06-10T00:00:00+00:00"},
+        "error_message": "",
+        "last_attempt_status": "success",
+    }
+    await coordinator._async_save_to_storage(stored)
+    await coordinator.async_load_from_storage()
+
+    assert coordinator.data["state"] == "stored latest"
+    assert coordinator.data["previous_state"] == "stored previous"
+    assert coordinator.data["attributes"]["last_scrape"] == "2026-06-10T00:00:00+00:00"
+
+
+async def test_coordinator_copies_latest_to_previous_after_storage_restore(
+    hass: HomeAssistant,
+) -> None:
+    """Test that a refresh after restore copies stored latest into previous."""
+    entry = ConfigEntry(
+        version=1,
+        minor_version=1,
+        domain=DOMAIN,
+        title="Test Scraper",
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_SCRAPER,
+            CONF_PROVIDER_ID: "provider-id",
+            CONF_SCRAPER_NAME: "Test Scraper",
+            CONF_URL: "https://example.com",
+            CONF_PROMPT: "Extract text",
+            CONF_EXTRACTION_MODE: "dom",
+            CONF_INTERVAL_SECONDS: 0,
+        },
+        source="user",
+        options={},
+        entry_id="scraper-entry-id",
+    )
+    entry.add_to_hass(hass)
+
+    coordinator = AIWebScraperDataUpdateCoordinator(
+        hass=hass,
+        logger=LOGGER,
+        name="Test Scraper",
+        update_interval=None,
+    )
+    coordinator.config_entry = entry
+
+    client = AsyncMock()
+    client.async_get_data.return_value = {
+        "state": "new latest",
+        "attributes": {"url": "https://example.com"},
+        "error_message": "",
+        "last_attempt_status": "success",
+    }
+
+    entry.runtime_data = IntegrationBlueprintData(
+        client=client,
+        integration=None,
+        coordinator=coordinator,
+    )
+
+    stored = {
+        "state": "stored latest",
+        "previous_state": "stored previous",
+        "attributes": {"url": "https://example.com"},
+        "error_message": "",
+        "last_attempt_status": "success",
+    }
+    await coordinator._async_save_to_storage(stored)
+    await coordinator.async_load_from_storage()
+    await coordinator.async_refresh()
+
+    assert coordinator.data["state"] == "new latest"
+    assert coordinator.data["previous_state"] == "stored latest"
+
+
 async def test_coordinator_logs_scrape_failure(
     hass: HomeAssistant, caplog: Any
 ) -> None:

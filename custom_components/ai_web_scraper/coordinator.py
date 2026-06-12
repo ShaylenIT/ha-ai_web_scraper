@@ -6,16 +6,19 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .api import (
     IntegrationBlueprintApiClientAuthenticationError,
     IntegrationBlueprintApiClientError,
 )
-from .const import CONF_EXTRACTION_MODE, CONF_PROMPT, CONF_PROVIDER_NAME, CONF_URL
+from .const import CONF_EXTRACTION_MODE, CONF_PROMPT, CONF_PROVIDER_NAME, CONF_URL, DOMAIN
 
 if TYPE_CHECKING:
     from .data import IntegrationBlueprintConfigEntry
+
+STORAGE_VERSION = 1
 
 
 # https://developers.home-assistant.io/docs/integration_fetching_data#coordinated-single-api-poll-for-data-for-all-entities
@@ -32,6 +35,23 @@ class AIWebScraperDataUpdateCoordinator(DataUpdateCoordinator):
             return data.get("error_message")
         return state
 
+    def _storage(self) -> Store[dict[str, Any]]:
+        """Return the storage helper for this scraper entry."""
+        return Store(
+            self.hass,
+            STORAGE_VERSION,
+            f"{DOMAIN}.{self.config_entry.entry_id}.scrape_state",
+        )
+
+    async def async_load_from_storage(self) -> None:
+        """Restore the last persisted scrape state before fetching new data."""
+        if stored := await self._storage().async_load():
+            self.async_set_updated_data(stored)
+
+    async def _async_save_to_storage(self, data: dict[str, Any]) -> None:
+        """Persist scrape state so entities survive restarts."""
+        await self._storage().async_save(data)
+
     async def _async_update_data(self) -> Any:
         """Update data via library."""
         try:
@@ -42,6 +62,7 @@ class AIWebScraperDataUpdateCoordinator(DataUpdateCoordinator):
             if new_data.get("last_attempt_status") == "success" and self.data:
                 previous_state = self._get_display_state(self.data)
             new_data["previous_state"] = previous_state
+            await self._async_save_to_storage(new_data)
             return new_data
         except IntegrationBlueprintApiClientAuthenticationError as exception:
             raise ConfigEntryAuthFailed(exception) from exception
@@ -69,4 +90,5 @@ class AIWebScraperDataUpdateCoordinator(DataUpdateCoordinator):
             }
             if self.data:
                 failure_data["previous_state"] = self.data.get("previous_state")
+            await self._async_save_to_storage(failure_data)
             return failure_data
