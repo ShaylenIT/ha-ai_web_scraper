@@ -14,7 +14,15 @@ from .api import (
     IntegrationBlueprintApiClientAuthenticationError,
     IntegrationBlueprintApiClientError,
 )
-from .const import CONF_EXTRACTION_MODE, CONF_PROMPT, CONF_PROVIDER_NAME, CONF_URL, DOMAIN, LOGGER
+from .const import (
+    CONF_EXTRACTION_MODE,
+    CONF_NOTES,
+    CONF_PROMPT,
+    CONF_PROVIDER_NAME,
+    CONF_URL,
+    DOMAIN,
+    LOGGER,
+)
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
@@ -98,6 +106,14 @@ class AIWebScraperDataUpdateCoordinator(DataUpdateCoordinator):
         """Update data via library."""
         try:
             new_data = await self.config_entry.runtime_data.client.async_get_data()
+
+            # Preserve the notes value across scrape updates
+            notes = ""
+            if self.data:
+                notes = self.data.get(CONF_NOTES, "")
+            if notes:
+                new_data[CONF_NOTES] = notes
+
             previous_state = None
             if self.data:
                 previous_state = self.data.get("previous_state")
@@ -138,6 +154,9 @@ class AIWebScraperDataUpdateCoordinator(DataUpdateCoordinator):
                 "error_message": error_message,
                 "last_attempt_status": "failure",
             }
+            # Preserve the notes value on error
+            if self.data and self.data.get(CONF_NOTES):
+                failure_data[CONF_NOTES] = self.data[CONF_NOTES]
             if self.data and self.data.get("previous_state") is not None:
                 failure_data["previous_state"] = self.data["previous_state"]
             await self._async_save_to_storage(failure_data)

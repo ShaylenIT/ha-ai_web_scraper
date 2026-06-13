@@ -103,6 +103,7 @@ PLATFORMS: list[Platform] = [
     Platform.NUMBER,
     Platform.IMAGE,
     Platform.SWITCH,
+    Platform.TEXT,
 ]
 
 
