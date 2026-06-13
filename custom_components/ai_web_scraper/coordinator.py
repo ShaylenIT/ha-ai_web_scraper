@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from logging import Logger
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.exceptions import ConfigEntryAuthFailed
@@ -33,9 +34,11 @@ class AIWebScraperDataUpdateCoordinator(DataUpdateCoordinator):
         self,
         hass: HomeAssistant,
         config_entry: IntegrationBlueprintConfigEntry,
+        logger: Logger,  # noqa: ARG002 Unused — passed through to parent
+        **kwargs: Any,
     ) -> None:
         """Initialize the coordinator."""
-        super().__init__(hass, LOGGER, config_entry=config_entry, name=DOMAIN)
+        super().__init__(hass, LOGGER, config_entry=config_entry, **kwargs)
         self._current_status: str = "idle"
 
     @property
