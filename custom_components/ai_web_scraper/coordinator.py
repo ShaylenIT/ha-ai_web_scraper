@@ -13,9 +13,11 @@ from .api import (
     IntegrationBlueprintApiClientAuthenticationError,
     IntegrationBlueprintApiClientError,
 )
-from .const import CONF_EXTRACTION_MODE, CONF_PROMPT, CONF_PROVIDER_NAME, CONF_URL, DOMAIN
+from .const import CONF_EXTRACTION_MODE, CONF_PROMPT, CONF_PROVIDER_NAME, CONF_URL, DOMAIN, LOGGER
 
 if TYPE_CHECKING:
+    from homeassistant.core import HomeAssistant
+
     from .data import IntegrationBlueprintConfigEntry
 
 STORAGE_VERSION = 1
@@ -26,6 +28,35 @@ class AIWebScraperDataUpdateCoordinator(DataUpdateCoordinator):
     """Class to manage fetching data from the API."""
 
     config_entry: IntegrationBlueprintConfigEntry
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        config_entry: IntegrationBlueprintConfigEntry,
+    ) -> None:
+        """Initialize the coordinator."""
+        super().__init__(hass, LOGGER, config_entry=config_entry, name=DOMAIN)
+        self._current_status: str = "idle"
+
+    @property
+    def current_status(self) -> str:
+        """Return the live scraper status phase."""
+        return self._current_status
+
+    def _set_status_callback(self, status: str) -> None:
+        """Callback invoked by the API client when the scraper phase changes.
+
+        Writes the new status into coordinator state immediately and
+        notifies entity listeners so the phase sensor updates in real time.
+        """
+        if status != self._current_status:
+            self._current_status = status
+            if self.data:
+                old_data = dict(self.data)
+                attrs = dict(old_data.get("attributes", {}))
+                attrs["scraper_status"] = status
+                old_data["attributes"] = attrs
+                self.async_set_updated_data(old_data)
 
     @staticmethod
     def _get_display_state(data: dict[str, Any]) -> str | None:

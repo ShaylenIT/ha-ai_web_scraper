@@ -140,6 +140,11 @@ async def async_setup_entry(
         coordinator=coordinator,
     )
 
+    # Wire live status updates: client → coordinator → entity listeners
+    entry.runtime_data.client.set_status_callback(
+        coordinator._set_status_callback
+    )
+
     await coordinator.async_load_from_storage()
     await coordinator.async_config_entry_first_refresh()
 

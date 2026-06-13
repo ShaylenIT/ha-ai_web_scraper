@@ -258,6 +258,7 @@ class IntegrationBlueprintApiClient:
         screenshot_dir: str | None = None,
         screenshot_filename: str | None = None,
         block_consent_modals: bool = True,
+        status_callback: Callable[[str], None] | None = None,
     ) -> None:
         """Initialize the scraper client."""
         self._provider_name = provider_name
@@ -275,10 +276,19 @@ class IntegrationBlueprintApiClient:
         self._screenshot_dir = screenshot_dir
         self._screenshot_filename = screenshot_filename
         self._block_consent_modals = block_consent_modals
+        self._status_callback = status_callback
+
+    def set_status_callback(
+        self, callback: Callable[[str], None] | None
+    ) -> None:
+        """Set or clear the live status update callback."""
+        self._status_callback = callback
 
     def _set_scraper_status(self, status: str) -> None:
-        """Update the current scraper status."""
+        """Update the current scraper status and notify the coordinator."""
         self._scraper_status = status
+        if self._status_callback:
+            self._status_callback(status)
 
     async def async_get_data(self) -> dict[str, Any]:
         """

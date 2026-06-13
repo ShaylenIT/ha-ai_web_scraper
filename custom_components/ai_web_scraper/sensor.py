@@ -33,7 +33,7 @@ ENTITY_DESCRIPTIONS = (
     ),
     SensorEntityDescription(
         key="ai_web_scraper_status",
-        name="Scraper Status",
+        name="Scraper Phase",
         icon="mdi:progress-clock",
     ),
     SensorEntityDescription(

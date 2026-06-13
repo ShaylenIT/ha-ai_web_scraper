@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 ENTITY_DESCRIPTIONS = (
     BinarySensorEntityDescription(
         key="ai_web_scraper_status",
-        name="Scraper Status",
+        name="Scraper Problem",
         device_class=BinarySensorDeviceClass.PROBLEM,
     ),
 )
