@@ -33,8 +33,8 @@ class AIWebScraperDataUpdateCoordinator(DataUpdateCoordinator):
     def __init__(
         self,
         hass: HomeAssistant,
-        config_entry: IntegrationBlueprintConfigEntry | None,
-        logger: Logger,  # noqa: ARG002 Unused — passed through to parent
+        config_entry: IntegrationBlueprintConfigEntry | None = None,
+        logger: Logger | None = None,  # noqa: ARG002 Unused — passed through to parent
         **kwargs: Any,
     ) -> None:
         """Initialize the coordinator."""
