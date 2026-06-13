@@ -7,6 +7,7 @@ https://github.com/ludeeus/ai_web_scraper
 
 from __future__ import annotations
 
+import asyncio
 from datetime import timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -148,6 +149,13 @@ async def async_setup_entry(
 
     await coordinator.async_load_from_storage()
     await coordinator.async_config_entry_first_refresh()
+
+    # Stagger scraper startups so each one doesn't slam Browserless
+    # immediately. The global semaphore in api.py already serialises
+    # concurrent scrape operations — this extra delay spreads out the
+    # initial load across several seconds to further help Browserless
+    # keep up.
+    await asyncio.sleep(3)
 
     entry.async_on_unload(
         entry.add_update_listener(async_on_scraper_config_update)

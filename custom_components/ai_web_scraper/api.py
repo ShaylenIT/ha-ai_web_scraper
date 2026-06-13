@@ -26,6 +26,12 @@ RETRY_HTTP_5XX_LOWER = 500
 RETRY_HTTP_5XX_UPPER = 600
 RATE_LIMIT_STATUS = 429
 
+# Module-level semaphore that limits concurrent scrape operations across ALL
+# scraper instances. Without this, multiple scrapers starting at the same time
+# (e.g. on Home Assistant restart) all hit Browserless simultaneously,
+# overwhelming its limited Chrome session pool and causing 30-second timeouts.
+SCRAPE_CONCURRENCY_SEMAPHORE = asyncio.Semaphore(1)
+
 
 class Provider:
     """Base provider implementation."""
@@ -298,6 +304,16 @@ class IntegrationBlueprintApiClient:
         under the Home Assistant config directory so they remain available
         across restarts.
         """
+        # Show queued status immediately so the phase sensor updates
+        # even when we're waiting behind other scrapers at the semaphore.
+        self._set_scraper_status("queued")
+        async with SCRAPE_CONCURRENCY_SEMAPHORE:
+            return await self._do_scrape()
+
+        # unreachable
+
+    async def _do_scrape(self) -> dict[str, Any]:
+        """Execute the actual scrape — always called under the concurrency semaphore."""
         if self._missing_provider:
             msg = (
                 "Missing provider configuration. "
