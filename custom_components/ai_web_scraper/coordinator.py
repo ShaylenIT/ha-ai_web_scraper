@@ -78,8 +78,16 @@ class AIWebScraperDataUpdateCoordinator(DataUpdateCoordinator):
         )
 
     async def async_load_from_storage(self) -> None:
-        """Restore the last persisted scrape state before fetching new data."""
+        """Restore the last persisted scrape state before fetching new data.
+
+        Resets the phase to idle since no scrape is actively running after
+        a Home Assistant restart.
+        """
         if stored := await self._storage().async_load():
+            attrs = dict(stored.get("attributes", {}))
+            attrs["scraper_status"] = "idle"
+            stored["attributes"] = attrs
+            self._current_status = "idle"
             self.async_set_updated_data(stored)
 
     async def _async_save_to_storage(self, data: dict[str, Any]) -> None:
