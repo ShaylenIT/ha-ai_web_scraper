@@ -776,7 +776,7 @@ class IntegrationBlueprintApiClient:
         max_attempts = 2
         for attempt in range(max_attempts):
             try:
-                async with async_timeout.timeout(10):
+                async with async_timeout.timeout(30):
                     response = await self._session.request(
                         method=method,
                         url=url,
