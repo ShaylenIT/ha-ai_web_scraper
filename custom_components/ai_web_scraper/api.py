@@ -15,6 +15,7 @@ from typing import Any
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 import aiohttp
+import aiofiles
 import async_timeout
 
 from .const import LOGGER, PROVIDER_TYPE_GEMINI, PROVIDER_TYPE_OPENAI
@@ -692,13 +693,11 @@ class IntegrationBlueprintApiClient:
                 "Screenshot storage location is not configured."
             )
 
-        def _write() -> str:
-            screenshot_path = Path(self._screenshot_dir) / self._screenshot_filename
-            screenshot_path.parent.mkdir(parents=True, exist_ok=True)
-            screenshot_path.write_bytes(screenshot)
-            return str(screenshot_path)
-
-        return await asyncio.to_thread(_write)
+        screenshot_path = Path(self._screenshot_dir) / self._screenshot_filename
+        screenshot_path.parent.mkdir(parents=True, exist_ok=True)
+        async with aiofiles.open(screenshot_path, "wb") as f:
+            await f.write(screenshot)
+        return str(screenshot_path)
 
     def _get_provider(self) -> Provider:
         if self._provider_type == PROVIDER_TYPE_GEMINI:

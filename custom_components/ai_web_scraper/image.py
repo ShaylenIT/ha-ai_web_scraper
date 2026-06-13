@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import aiofiles
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -80,8 +81,9 @@ class IntegrationBlueprintImage(IntegrationBlueprintEntity, ImageEntity):
         )
         return {"path": f"/config/{relative_path.as_posix()}"}
 
-    def image(self) -> bytes | None:
+    async def async_image(self) -> bytes | None:
         """Return the last saved screenshot image."""
         if not self._screenshot_path.is_file():
             return None
-        return self._screenshot_path.read_bytes()
+        async with aiofiles.open(self._screenshot_path, "rb") as f:
+            return await f.read()
