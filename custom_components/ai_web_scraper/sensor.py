@@ -89,11 +89,6 @@ class IntegrationBlueprintSensor(IntegrationBlueprintEntity, SensorEntity):
             return self.coordinator.data.get("previous_state")
 
         state = self.coordinator.data.get("state")
-        if (
-            state is None
-            and self.coordinator.data.get("last_attempt_status") == "failure"
-        ):
-            return self.coordinator.data.get("error_message", "unknown")
         return state
 
     @property

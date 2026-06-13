@@ -105,8 +105,12 @@ class AIWebScraperDataUpdateCoordinator(DataUpdateCoordinator):
                 "Scraper data fetch failed for %s",
                 self.config_entry.title,
             )
+            error_message = str(exception)
+            previous_state = (
+                self._get_display_state(self.data) if self.data else None
+            )
             failure_data = {
-                "state": None,
+                "state": previous_state,
                 "attributes": {
                     "url": self.config_entry.data.get(CONF_URL, ""),
                     "prompt": self.config_entry.data.get(CONF_PROMPT, ""),
@@ -115,14 +119,18 @@ class AIWebScraperDataUpdateCoordinator(DataUpdateCoordinator):
                         CONF_EXTRACTION_MODE, ""
                     ),
                     "scrape_duration_seconds": 0,
-                    "last_successful_scrape": None,
+                    "last_successful_scrape": (
+                        self.data.get("attributes", {}).get("last_successful_scrape")
+                        if self.data
+                        else None
+                    ),
                     "last_scrape": datetime.now(timezone.utc).isoformat(),
-                    "scraper_status": "failed",
+                    "scraper_status": f"failed - {error_message}",
                 },
-                "error_message": str(exception),
+                "error_message": error_message,
                 "last_attempt_status": "failure",
             }
-            if self.data:
-                failure_data["previous_state"] = self.data.get("previous_state")
+            if self.data and self.data.get("previous_state") is not None:
+                failure_data["previous_state"] = self.data["previous_state"]
             await self._async_save_to_storage(failure_data)
             return failure_data
