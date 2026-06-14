@@ -341,14 +341,16 @@ class IntegrationBlueprintApiClient:
                     exception,
                 )
 
+        # Save screenshot BEFORE the AI call so it persists even if the
+        # provider rate-limits or errors out.
+        screenshot_path = None
+        if screenshot is not None and self._screenshot_dir:
+            screenshot_path = await self._save_screenshot(screenshot)
+
         self._set_scraper_status("processing_ai_response")
         state = await self._provider_extract(page_text)
         duration = (datetime.now(tz=UTC) - start).total_seconds()
         now = datetime.now(tz=UTC).isoformat()
-
-        screenshot_path = None
-        if screenshot is not None and self._screenshot_dir:
-            screenshot_path = await self._save_screenshot(screenshot)
 
         attributes = {
             "url": self._url,
@@ -574,63 +576,26 @@ class IntegrationBlueprintApiClient:
             query=urlencode(parse_qs(parsed_url.query), doseq=True),
         )
 
-        payloads = [
-            {
-                "url": url,
-                "gotoOptions": {
-                    "waitUntil": "networkidle2",
-                    "timeout": 30000,
-                },
-                "options": {
-                    "fullPage": True,
-                    "type": "png",
-                },
-                "bestAttempt": True,
-                "waitFor": 1500,
+        payload: dict[str, Any] = {
+            "url": url,
+            "gotoOptions": {
+                "waitUntil": "networkidle2",
+                "timeout": 30000,
             },
-            {
-                "url": url,
-                "gotoOptions": {
-                    "waitUntil": "networkidle2",
-                    "timeout": 30000,
-                },
+            "options": {
                 "fullPage": True,
                 "type": "png",
-                "bestAttempt": True,
             },
-            {
-                "url": url,
-                "gotoOptions": {
-                    "waitUntil": "networkidle2",
-                    "timeout": 30000,
-                },
-                "screenshot": {
-                    "fullPage": True,
-                    "type": "png",
-                },
-                "bestAttempt": True,
-            },
-            {
-                "url": url,
-                "options": {
-                    "waitUntil": "networkidle2",
-                    "timeout": 30000,
-                },
-                "fullPage": True,
-                "type": "png",
-                "bestAttempt": True,
-            },
-        ]
+        }
 
         if self._block_consent_modals:
-            for payload in payloads:
-                payload["addScriptTag"] = [{"content": self._OVERLAY_BLOCK_SCRIPT}]
+            payload["addScriptTag"] = [{"content": self._OVERLAY_BLOCK_SCRIPT}]
             LOGGER.debug(
                 "Overlay blocking enabled for %s — injecting z-index sweep script (screenshot).",
                 url,
             )
 
-        for attempt, payload in enumerate(payloads):
+        for attempt in range(2):
             try:
                 async with async_timeout.timeout(30):
                     response = await self._session.post(
@@ -668,7 +633,8 @@ class IntegrationBlueprintApiClient:
                     raise IntegrationBlueprintApiClientCommunicationError(
                         msg
                     ) from exception
-                if attempt < len(payloads) - 1:
+                if attempt == 0 and 500 <= exception.status < 600:
+                    await asyncio.sleep(3)
                     continue
                 msg = (
                     "Error fetching rendered page screenshot - "
