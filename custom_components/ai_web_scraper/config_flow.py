@@ -11,6 +11,7 @@ from slugify import slugify
 from .const import (
     CONF_API_KEY,
     CONF_BROWSERLESS_URL,
+    CONF_COOL_DOWN_SECONDS,
     CONF_ENTRY_TYPE,
     CONF_EXTRACTION_MODE,
     CONF_INTERVAL_SECONDS,
@@ -119,6 +120,17 @@ class AIWebScraperConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 ): selector.TextSelector(
                     selector.TextSelectorConfig(type=selector.TextSelectorType.URL)
                 ),
+                vol.Optional(
+                    CONF_COOL_DOWN_SECONDS,
+                    default=(user_input or {}).get(CONF_COOL_DOWN_SECONDS, 0),
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        mode=selector.NumberSelectorMode.BOX,
+                        min=0,
+                        max=3600,
+                        unit_of_measurement="seconds",
+                    )
+                ),
             }
         )
 
@@ -196,6 +208,7 @@ class AIWebScraperConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_API_KEY: user_input[CONF_API_KEY],
                         CONF_MODEL_NAME: user_input[CONF_MODEL_NAME],
                         CONF_BROWSERLESS_URL: user_input.get(CONF_BROWSERLESS_URL, ""),
+                        CONF_COOL_DOWN_SECONDS: user_input.get(CONF_COOL_DOWN_SECONDS, 0),
                     },
                 )
 

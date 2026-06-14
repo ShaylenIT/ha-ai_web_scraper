@@ -19,7 +19,9 @@ from homeassistant.loader import async_get_loaded_integration
 from .api import IntegrationBlueprintApiClient
 from .const import (
     CONF_API_KEY,
+    CONF_BLOCK_CONSENT_MODALS,
     CONF_BROWSERLESS_URL,
+    CONF_COOL_DOWN_SECONDS,
     CONF_ENTRY_TYPE,
     CONF_EXTRACTION_MODE,
     CONF_INTERVAL_SECONDS,
@@ -77,6 +79,13 @@ def _build_entry_client(
         entry.data.get(CONF_BLOCK_CONSENT_MODALS, True),
     )
 
+    provider_id = entry.data.get(CONF_PROVIDER_ID, "")
+    cooldown_seconds = (
+        int(provider_entry.data.get(CONF_COOL_DOWN_SECONDS, 0))
+        if provider_entry
+        else 0
+    )
+
     return IntegrationBlueprintApiClient(
         provider_name=provider_name,
         api_key=api_key,
@@ -91,6 +100,8 @@ def _build_entry_client(
         screenshot_dir=screenshot_dir,
         screenshot_filename=f"{entry.entry_id}.png",
         block_consent_modals=block_consent_modals,
+        provider_id=provider_id,
+        cooldown_seconds=cooldown_seconds,
     )
 
 

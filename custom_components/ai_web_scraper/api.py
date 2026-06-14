@@ -32,6 +32,11 @@ RATE_LIMIT_STATUS = 429
 # overwhelming its limited Chrome session pool and causing 30-second timeouts.
 SCRAPE_CONCURRENCY_SEMAPHORE = asyncio.Semaphore(1)
 
+# Tracks the last API call time per provider entry ID so scrapers sharing
+# the same provider can enforce a cool-down between consecutive AI calls.
+_last_provider_api_call: dict[str, datetime] = {}
+
+
 
 class Provider:
     """Base provider implementation."""
@@ -265,6 +270,8 @@ class IntegrationBlueprintApiClient:
         screenshot_filename: str | None = None,
         block_consent_modals: bool = True,
         status_callback: Callable[[str], None] | None = None,
+        provider_id: str = "",
+        cooldown_seconds: int = 0,
     ) -> None:
         """Initialize the scraper client."""
         self._provider_name = provider_name
@@ -283,6 +290,8 @@ class IntegrationBlueprintApiClient:
         self._screenshot_filename = screenshot_filename
         self._block_consent_modals = block_consent_modals
         self._status_callback = status_callback
+        self._provider_id = provider_id
+        self._cooldown_seconds = cooldown_seconds
 
     def set_status_callback(
         self, callback: Callable[[str], None] | None
@@ -322,6 +331,20 @@ class IntegrationBlueprintApiClient:
             raise IntegrationBlueprintApiClientError(msg)
 
         start = datetime.now(tz=UTC)
+
+        # Per-provider cool-down: wait before the Browserless / AI
+        # pipeline so the total gap between consecutive scrapes using
+        # the same provider accounts for both rendering and extraction.
+        if self._provider_id and self._cooldown_seconds > 0:
+            last_call = _last_provider_api_call.get(self._provider_id)
+            if last_call is not None:
+                elapsed = (datetime.now(tz=UTC) - last_call).total_seconds()
+                remaining = self._cooldown_seconds - elapsed
+                if remaining > 0:
+                    self._set_scraper_status("cooling_down")
+                    await asyncio.sleep(remaining)
+            _last_provider_api_call[self._provider_id] = datetime.now(tz=UTC)
+
         if self._browserless_url:
             self._set_scraper_status("rendering_page")
         else:

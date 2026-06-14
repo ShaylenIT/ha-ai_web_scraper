@@ -21,6 +21,7 @@ CONF_EXTRACTION_MODE = "extraction_mode"
 CONF_INTERVAL_SECONDS = "interval_seconds"
 CONF_BLOCK_CONSENT_MODALS = "block_consent_modals"
 CONF_NOTES = "notes"
+CONF_COOL_DOWN_SECONDS = "cool_down_seconds"
 
 PROVIDER_TYPE_OPENAI = "openai"
 PROVIDER_TYPE_GEMINI = "gemini"
