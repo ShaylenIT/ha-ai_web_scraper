@@ -341,8 +341,8 @@ class IntegrationBlueprintApiClient:
                     exception,
                 )
 
-        state = await self._provider_extract(page_text)
         self._set_scraper_status("processing_ai_response")
+        state = await self._provider_extract(page_text)
         duration = (datetime.now(tz=UTC) - start).total_seconds()
         now = datetime.now(tz=UTC).isoformat()
 
@@ -789,7 +789,7 @@ class IntegrationBlueprintApiClient:
         headers: dict | None = None,
     ) -> Any:
         """Make a request to the remote API."""
-        max_attempts = 2
+        max_attempts = 3
         for attempt in range(max_attempts):
             try:
                 async with async_timeout.timeout(30):
@@ -819,7 +819,8 @@ class IntegrationBlueprintApiClient:
                     attempt < max_attempts - 1
                     and RETRY_HTTP_5XX_LOWER <= exception.status < RETRY_HTTP_5XX_UPPER
                 ):
-                    await asyncio.sleep(5)
+                    backoff = 5 * (attempt + 1)
+                    await asyncio.sleep(backoff)
                     continue
 
                 if exception.status == HTTP_STATUS_NOT_FOUND:
