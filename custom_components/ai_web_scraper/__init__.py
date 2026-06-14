@@ -148,6 +148,16 @@ async def async_setup_entry(
     )
 
     await coordinator.async_load_from_storage()
+
+    # Create entities BEFORE the first refresh so they're alive to receive
+    # live phase updates (queued → rendering_page → ... → completed) and
+    # serve the screenshot immediately after it's captured.
+    entry.async_on_unload(
+        entry.add_update_listener(async_on_scraper_config_update)
+    )
+
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
     await coordinator.async_config_entry_first_refresh()
 
     # Stagger scraper startups so each one doesn't slam Browserless
@@ -156,12 +166,6 @@ async def async_setup_entry(
     # initial load across several seconds to further help Browserless
     # keep up.
     await asyncio.sleep(3)
-
-    entry.async_on_unload(
-        entry.add_update_listener(async_on_scraper_config_update)
-    )
-
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     return True
 
