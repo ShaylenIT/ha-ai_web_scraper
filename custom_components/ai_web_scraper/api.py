@@ -585,6 +585,8 @@ class IntegrationBlueprintApiClient:
                     "fullPage": True,
                     "type": "png",
                 },
+                "bestAttempt": True,
+                "waitFor": 1500,
             },
             {
                 "url": url,
@@ -594,6 +596,7 @@ class IntegrationBlueprintApiClient:
                 },
                 "fullPage": True,
                 "type": "png",
+                "bestAttempt": True,
             },
             {
                 "url": url,
@@ -605,6 +608,7 @@ class IntegrationBlueprintApiClient:
                     "fullPage": True,
                     "type": "png",
                 },
+                "bestAttempt": True,
             },
             {
                 "url": url,
@@ -614,6 +618,7 @@ class IntegrationBlueprintApiClient:
                 },
                 "fullPage": True,
                 "type": "png",
+                "bestAttempt": True,
             },
         ]
 
