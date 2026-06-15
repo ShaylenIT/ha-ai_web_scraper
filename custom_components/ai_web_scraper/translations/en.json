@@ -5,8 +5,26 @@
             "user": {
                 "description": "If you need help with the configuration have a look here: {documentation_url}",
                 "data": {
-                    "username": "Username",
-                    "password": "Password"
+                    "entry_type": "Entry Type"
+                }
+            },
+            "provider": {
+                "title": "Select AI Provider",
+                "description": "Choose the AI provider brand you want to configure.",
+                "data": {
+                    "provider_type": "AI Provider"
+                }
+            },
+            "provider_details": {
+                "title": "Configure {provider_brand} Provider",
+                "description": "Enter the credentials and settings for your {provider_brand} provider.",
+                "data": {
+                    "provider_name": "Provider Name",
+                    "api_key": "API Key",
+                    "model_name": "Model Name",
+                    "base_url": "Base URL",
+                    "browserless_url": "Browserless URL (optional)",
+                    "cool_down_seconds": "Cool-down between scrapes (seconds)"
                 }
             }
         },

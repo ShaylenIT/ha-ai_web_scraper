@@ -19,6 +19,7 @@ from homeassistant.loader import async_get_loaded_integration
 from .api import IntegrationBlueprintApiClient
 from .const import (
     CONF_API_KEY,
+    CONF_BASE_URL,
     CONF_BLOCK_CONSENT_MODALS,
     CONF_BROWSERLESS_URL,
     CONF_COOL_DOWN_SECONDS,
@@ -37,6 +38,8 @@ from .const import (
     ENTRY_TYPE_PROVIDER,
     ENTRY_TYPE_SCRAPER,
     LOGGER,
+    OPENAI_COMPATIBLE_TYPES,
+    PROVIDER_BASE_URLS,
     PROVIDER_TYPE_OPENAI,
 )
 from .coordinator import AIWebScraperDataUpdateCoordinator
@@ -71,6 +74,11 @@ def _build_entry_client(
     else:
         provider_type = PROVIDER_TYPE_OPENAI
 
+    # Resolve base URL: use user-configured value, or fall back to default for known providers
+    base_url = provider_entry.data.get(CONF_BASE_URL, "") if provider_entry else ""
+    if not base_url and provider_type in OPENAI_COMPATIBLE_TYPES:
+        base_url = PROVIDER_BASE_URLS.get(provider_type, "https://api.openai.com/v1")
+
     screenshot_dir = hass.config.path(DOMAIN, "screenshots")
     Path(screenshot_dir).mkdir(parents=True, exist_ok=True)
 
@@ -92,6 +100,7 @@ def _build_entry_client(
         model_name=model_name,
         browserless_url=browserless_url,
         provider_type=provider_type,
+        base_url=base_url,
         scraper_name=entry.data.get(CONF_SCRAPER_NAME, entry.title),
         url=entry.data.get(CONF_URL, ""),
         prompt=entry.data.get(CONF_PROMPT, ""),

@@ -9,11 +9,19 @@ from custom_components.ai_web_scraper.api import (
     IntegrationBlueprintApiClient,
     IntegrationBlueprintApiClientCommunicationError,
     IntegrationBlueprintApiClientError,
-    OpenAIProvider,
+    OpenAICompatibleProvider,
 )
 from custom_components.ai_web_scraper.const import (
+    OPENAI_COMPATIBLE_TYPES,
+    PROVIDER_BASE_URLS,
     PROVIDER_TYPE_GEMINI,
+    PROVIDER_TYPE_GROQ,
+    PROVIDER_TYPE_LOCALAI,
+    PROVIDER_TYPE_OLLAMA,
     PROVIDER_TYPE_OPENAI,
+    PROVIDER_TYPE_OPENAI_COMPATIBLE,
+    PROVIDER_TYPE_OPENROUTER,
+    PROVIDER_TYPE_OPENWEBUI,
 )
 
 
@@ -52,7 +60,7 @@ def test_gemini_provider_extract_uses_gemini_generate_endpoint() -> None:
     assert result["attributes"]["scraper_status"] == "completed"
 
 
-def test_provider_factory_selects_openai_by_default() -> None:
+def test_provider_factory_selects_openai_compatible_by_default() -> None:
     client = IntegrationBlueprintApiClient(
         provider_name="Test Provider",
         api_key="test-key",
@@ -68,7 +76,81 @@ def test_provider_factory_selects_openai_by_default() -> None:
 
     provider = client._get_provider()
 
-    assert isinstance(provider, OpenAIProvider)
+    assert isinstance(provider, OpenAICompatibleProvider)
+
+
+def test_provider_factory_returns_openai_compatible_for_all_types() -> None:
+    """Every OpenAI-compatible provider type returns OpenAICompatibleProvider."""
+    for provider_type in OPENAI_COMPATIBLE_TYPES:
+        client = IntegrationBlueprintApiClient(
+            provider_name="Test Provider",
+            api_key="test-key",
+            model_name="test-model",
+            browserless_url="",
+            scraper_name="Test Scraper",
+            url="https://example.com",
+            prompt="Extract text",
+            extraction_mode="dom",
+            session=DummySession(),
+            provider_type=provider_type,
+        )
+        provider = client._get_provider()
+        assert isinstance(provider, OpenAICompatibleProvider), (
+            f"Expected OpenAICompatibleProvider for {provider_type}, "
+            f"got {type(provider).__name__}"
+        )
+
+
+def test_provider_factory_uses_correct_default_base_url() -> None:
+    """Each provider type defaults to the correct base URL."""
+    test_cases = [
+        (PROVIDER_TYPE_OPENAI, "https://api.openai.com/v1/chat/completions"),
+        (PROVIDER_TYPE_GROQ, "https://api.groq.com/openai/v1/chat/completions"),
+        (PROVIDER_TYPE_LOCALAI, "http://localhost:8080/v1/chat/completions"),
+        (PROVIDER_TYPE_OLLAMA, "http://localhost:11434/v1/chat/completions"),
+        (PROVIDER_TYPE_OPENROUTER, "https://openrouter.ai/api/v1/chat/completions"),
+    ]
+    for provider_type, expected_url in test_cases:
+        client = IntegrationBlueprintApiClient(
+            provider_name="Test",
+            api_key="key",
+            model_name="model",
+            browserless_url="",
+            scraper_name="Scraper",
+            url="https://example.com",
+            prompt="Extract",
+            extraction_mode="dom",
+            session=DummySession(),
+            provider_type=provider_type,
+        )
+        provider = client._get_provider()
+        assert isinstance(provider, OpenAICompatibleProvider)
+        # The URL is only resolved when extract() is called, but we can
+        # verify the internal _base_url was set correctly
+        assert provider._base_url == PROVIDER_BASE_URLS.get(
+            provider_type
+        ), f"Wrong base URL for {provider_type}"
+
+
+def test_provider_factory_uses_custom_base_url() -> None:
+    """Custom base URL overrides the default."""
+    custom_url = "https://my-custom-proxy.example.com/v1"
+    client = IntegrationBlueprintApiClient(
+        provider_name="Test",
+        api_key="key",
+        model_name="model",
+        browserless_url="",
+        scraper_name="Scraper",
+        url="https://example.com",
+        prompt="Extract",
+        extraction_mode="dom",
+        session=DummySession(),
+        provider_type=PROVIDER_TYPE_OPENAI_COMPATIBLE,
+        base_url=custom_url,
+    )
+    provider = client._get_provider()
+    assert isinstance(provider, OpenAICompatibleProvider)
+    assert provider._base_url == custom_url
 
 
 def test_gemini_provider_extract_raises_for_empty_candidate() -> None:

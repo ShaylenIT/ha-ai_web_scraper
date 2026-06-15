@@ -18,7 +18,13 @@ import aiohttp
 import aiofiles
 import async_timeout
 
-from .const import LOGGER, PROVIDER_TYPE_GEMINI, PROVIDER_TYPE_OPENAI
+from .const import (
+    LOGGER,
+    OPENAI_COMPATIBLE_TYPES,
+    PROVIDER_BASE_URLS,
+    PROVIDER_TYPE_GEMINI,
+    PROVIDER_TYPE_OPENAI,
+)
 
 HTTP_STATUS_NOT_FOUND = 404
 MAX_STATE_CHARS = 255
@@ -58,6 +64,14 @@ class Provider:
         """Extract text from the provided page text (abstract)."""
         raise NotImplementedError
 
+    @staticmethod
+    def _looks_like_html(text: str) -> bool:
+        """Detect whether a plain string looks like raw HTML."""
+        simplified = text.strip().lower()
+        return simplified.startswith(("<!doctype html", "<html", "<body")) or (
+            "<html" in simplified or "<body" in simplified
+        )
+
     async def _make_request(
         self,
         method: str,
@@ -73,14 +87,31 @@ class Provider:
         )
 
 
-class OpenAIProvider(Provider):
-    """OpenAI provider implementation."""
+class OpenAICompatibleProvider(Provider):
+    """Provider for any OpenAI-compatible API (configurable base URL).
+
+    Supports: OpenAI, Groq, LocalAI, Ollama (OpenAI-compatible endpoint),
+    Open WebUI, OpenRouter, and any custom OpenAI-compatible endpoint.
+    """
+
+    def __init__(
+        self,
+        api_key: str,
+        model_name: str,
+        prompt: str,
+        request_func: Callable[..., Any],
+        base_url: str,
+    ) -> None:
+        """Initialize provider with a configurable base URL."""
+        super().__init__(api_key, model_name, prompt, request_func)
+        self._base_url = base_url.rstrip("/")
 
     async def extract(self, page_text: str) -> str:
-        """Extract content using OpenAI."""
+        """Extract content using an OpenAI-compatible API."""
+        url = f"{self._base_url}/chat/completions"
         response = await self._make_request(
             method="post",
-            url="https://api.openai.com/v1/chat/completions",
+            url=url,
             headers={
                 "Authorization": f"Bearer {self._api_key}",
                 "Content-Type": "application/json",
@@ -138,12 +169,6 @@ class OpenAIProvider(Provider):
             msg = "Provider returned an empty response."
             raise IntegrationBlueprintApiClientError(msg)
         return extracted
-
-    def _looks_like_html(self, text: str) -> bool:
-        simplified = text.strip().lower()
-        return simplified.startswith(("<!doctype html", "<html", "<body")) or (
-            "<html" in simplified or "<body" in simplified
-        )
 
 
 class GeminiProvider(Provider):
@@ -217,12 +242,6 @@ class GeminiProvider(Provider):
             raise IntegrationBlueprintApiClientError(msg)
         return extracted
 
-    def _looks_like_html(self, text: str) -> bool:
-        simplified = text.strip().lower()
-        return simplified.startswith(("<!doctype html", "<html", "<body")) or (
-            "<html" in simplified or "<body" in simplified
-        )
-
 
 class IntegrationBlueprintApiClientError(Exception):
     """Exception to indicate a general API error."""
@@ -266,6 +285,7 @@ class IntegrationBlueprintApiClient:
         extraction_mode: str,
         session: aiohttp.ClientSession,
         provider_type: str = PROVIDER_TYPE_OPENAI,
+        base_url: str = "",
         screenshot_dir: str | None = None,
         screenshot_filename: str | None = None,
         block_consent_modals: bool = True,
@@ -279,6 +299,7 @@ class IntegrationBlueprintApiClient:
         self._model_name = model_name
         self._browserless_url = browserless_url
         self._provider_type = provider_type
+        self._base_url = base_url
         self._scraper_name = scraper_name
         self._url = url
         self._prompt = prompt
@@ -727,11 +748,16 @@ class IntegrationBlueprintApiClient:
                 prompt=self._prompt,
                 request_func=self._api_wrapper,
             )
-        return OpenAIProvider(
+        # All OpenAI-compatible providers use the same class with a configurable base URL
+        resolved_base_url = self._base_url or PROVIDER_BASE_URLS.get(
+            self._provider_type, "https://api.openai.com/v1"
+        )
+        return OpenAICompatibleProvider(
             api_key=self._api_key,
             model_name=self._model_name,
             prompt=self._prompt,
             request_func=self._api_wrapper,
+            base_url=resolved_base_url,
         )
 
     async def _provider_extract(self, page_text: str) -> str:
@@ -741,10 +767,7 @@ class IntegrationBlueprintApiClient:
 
     def _looks_like_html(self, text: str) -> bool:
         """Detect whether a plain string looks like raw HTML."""
-        simplified = text.strip().lower()
-        return simplified.startswith(("<!doctype html", "<html", "<body")) or (
-            "<html" in simplified or "<body" in simplified
-        )
+        return Provider._looks_like_html(text)
 
     def _normalize_page_text(self, page_text: str) -> str:
         """Normalize page text before sending it to the AI provider."""

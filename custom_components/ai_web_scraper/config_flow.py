@@ -10,6 +10,7 @@ from slugify import slugify
 
 from .const import (
     CONF_API_KEY,
+    CONF_BASE_URL,
     CONF_BROWSERLESS_URL,
     CONF_COOL_DOWN_SECONDS,
     CONF_ENTRY_TYPE,
@@ -27,6 +28,8 @@ from .const import (
     ENTRY_TYPE_SCRAPER,
     EXTRACTION_MODES,
     LOGGER,
+    OPENAI_COMPATIBLE_TYPES,
+    PROVIDER_BASE_URLS,
     PROVIDER_TYPE_OPENAI,
     PROVIDER_TYPES,
 )
@@ -84,55 +87,79 @@ class AIWebScraperConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def _provider_options(self) -> dict[str, str]:
         return {entry.entry_id: entry.title for entry in self._provider_entries()}
 
-    def _provider_schema(
+    def _provider_details_schema(
         self,
+        provider_type: str,
         user_input: dict | None = None,
     ) -> vol.Schema:
-        return vol.Schema(
-            {
-                vol.Required(
-                    CONF_PROVIDER_NAME,
-                    default=(user_input or {}).get(CONF_PROVIDER_NAME, vol.UNDEFINED),
-                ): selector.TextSelector(
-                    selector.TextSelectorConfig(type=selector.TextSelectorType.TEXT)
-                ),
-                vol.Required(
-                    CONF_PROVIDER_TYPE,
+        """Build a conditional schema based on the selected provider brand."""
+        schema_dict: dict[vol.Required | vol.Optional, object] = {
+            vol.Required(
+                CONF_PROVIDER_NAME,
+                default=(user_input or {}).get(CONF_PROVIDER_NAME, vol.UNDEFINED),
+            ): selector.TextSelector(
+                selector.TextSelectorConfig(type=selector.TextSelectorType.TEXT)
+            ),
+            vol.Required(
+                CONF_API_KEY,
+                default=(user_input or {}).get(CONF_API_KEY, vol.UNDEFINED),
+            ): selector.TextSelector(
+                selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
+            ),
+            vol.Required(
+                CONF_MODEL_NAME,
+                default=(user_input or {}).get(CONF_MODEL_NAME, vol.UNDEFINED),
+            ): selector.TextSelector(
+                selector.TextSelectorConfig(type=selector.TextSelectorType.TEXT)
+            ),
+            vol.Optional(
+                CONF_COOL_DOWN_SECONDS,
+                default=(user_input or {}).get(CONF_COOL_DOWN_SECONDS, 30),
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(
+                    mode=selector.NumberSelectorMode.BOX,
+                    min=0,
+                    max=3600,
+                    unit_of_measurement="seconds",
+                )
+            ),
+        }
+
+        # OpenAI-compatible providers: show base URL (pre-filled for known brands)
+        if provider_type in OPENAI_COMPATIBLE_TYPES:
+            default_url = PROVIDER_BASE_URLS.get(provider_type, "")
+            schema_dict[
+                vol.Optional(
+                    CONF_BASE_URL,
                     default=(user_input or {}).get(
-                        CONF_PROVIDER_TYPE, PROVIDER_TYPE_OPENAI
+                        CONF_BASE_URL, default_url or vol.UNDEFINED
                     ),
-                ): vol.In(PROVIDER_TYPES),
-                vol.Required(
-                    CONF_API_KEY,
-                    default=(user_input or {}).get(CONF_API_KEY, vol.UNDEFINED),
-                ): selector.TextSelector(
-                    selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
-                ),
-                vol.Required(
-                    CONF_MODEL_NAME,
-                    default=(user_input or {}).get(CONF_MODEL_NAME, vol.UNDEFINED),
-                ): selector.TextSelector(
-                    selector.TextSelectorConfig(type=selector.TextSelectorType.TEXT)
-                ),
+                )
+            ] = selector.TextSelector(
+                selector.TextSelectorConfig(type=selector.TextSelectorType.URL)
+            )
+            # Browserless URL is available for all compatible providers
+            schema_dict[
                 vol.Optional(
                     CONF_BROWSERLESS_URL,
                     default=(user_input or {}).get(CONF_BROWSERLESS_URL, vol.UNDEFINED),
-                ): selector.TextSelector(
-                    selector.TextSelectorConfig(type=selector.TextSelectorType.URL)
-                ),
+                )
+            ] = selector.TextSelector(
+                selector.TextSelectorConfig(type=selector.TextSelectorType.URL)
+            )
+
+        # Gemini: show browserless URL but no base URL
+        if provider_type == PROVIDER_TYPE_GEMINI:
+            schema_dict[
                 vol.Optional(
-                    CONF_COOL_DOWN_SECONDS,
-                    default=(user_input or {}).get(CONF_COOL_DOWN_SECONDS, 30),
-                ): selector.NumberSelector(
-                    selector.NumberSelectorConfig(
-                        mode=selector.NumberSelectorMode.BOX,
-                        min=0,
-                        max=3600,
-                        unit_of_measurement="seconds",
-                    )
-                ),
-            }
-        )
+                    CONF_BROWSERLESS_URL,
+                    default=(user_input or {}).get(CONF_BROWSERLESS_URL, vol.UNDEFINED),
+                )
+            ] = selector.TextSelector(
+                selector.TextSelectorConfig(type=selector.TextSelectorType.URL)
+            )
+
+        return vol.Schema(schema_dict)
 
     def _scraper_schema(
         self,
@@ -179,15 +206,51 @@ class AIWebScraperConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self,
         user_input: dict | None = None,
     ) -> config_entries.ConfigFlowResult:
-        """Handle AI Provider profile creation."""
+        """Step 1: Select the AI provider brand."""
         errors: dict[str, str] = {}
+
+        if user_input is not None:
+            provider_type = user_input.get(CONF_PROVIDER_TYPE)
+            if provider_type in PROVIDER_TYPES:
+                # Store the selected provider type for the next step
+                self._selected_provider_type = provider_type
+                return await self.async_step_provider_details()
+
+            errors[CONF_PROVIDER_TYPE] = "required"
+
+        schema = vol.Schema(
+            {
+                vol.Required(
+                    CONF_PROVIDER_TYPE,
+                    default=(user_input or {}).get(
+                        CONF_PROVIDER_TYPE, vol.UNDEFINED
+                    ),
+                ): vol.In(PROVIDER_TYPES),
+            }
+        )
+
+        return self.async_show_form(
+            step_id="provider",
+            data_schema=schema,
+            errors=errors,
+            description_placeholders={
+                "provider_types": ", ".join(PROVIDER_TYPES.values()),
+            },
+        )
+
+    async def async_step_provider_details(
+        self,
+        user_input: dict | None = None,
+    ) -> config_entries.ConfigFlowResult:
+        """Step 2: Configure provider-specific fields."""
+        errors: dict[str, str] = {}
+        provider_type = getattr(self, "_selected_provider_type", PROVIDER_TYPE_OPENAI)
 
         if user_input is not None:
             missing = [
                 field
                 for field in [
                     CONF_PROVIDER_NAME,
-                    CONF_PROVIDER_TYPE,
                     CONF_API_KEY,
                     CONF_MODEL_NAME,
                 ]
@@ -199,23 +262,37 @@ class AIWebScraperConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             else:
                 await self.async_set_unique_id(slugify(user_input[CONF_PROVIDER_NAME]))
                 self._abort_if_unique_id_configured()
+                data = {
+                    CONF_ENTRY_TYPE: ENTRY_TYPE_PROVIDER,
+                    CONF_PROVIDER_NAME: user_input[CONF_PROVIDER_NAME],
+                    CONF_PROVIDER_TYPE: provider_type,
+                    CONF_API_KEY: user_input[CONF_API_KEY],
+                    CONF_MODEL_NAME: user_input[CONF_MODEL_NAME],
+                    CONF_COOL_DOWN_SECONDS: user_input.get(CONF_COOL_DOWN_SECONDS, 30),
+                }
+                if provider_type in OPENAI_COMPATIBLE_TYPES:
+                    data[CONF_BASE_URL] = user_input.get(CONF_BASE_URL, "")
+                    data[CONF_BROWSERLESS_URL] = user_input.get(
+                        CONF_BROWSERLESS_URL, ""
+                    )
+                if provider_type == PROVIDER_TYPE_GEMINI:
+                    data[CONF_BROWSERLESS_URL] = user_input.get(
+                        CONF_BROWSERLESS_URL, ""
+                    )
                 return self.async_create_entry(
                     title=user_input[CONF_PROVIDER_NAME],
-                    data={
-                        CONF_ENTRY_TYPE: ENTRY_TYPE_PROVIDER,
-                        CONF_PROVIDER_NAME: user_input[CONF_PROVIDER_NAME],
-                        CONF_PROVIDER_TYPE: user_input[CONF_PROVIDER_TYPE],
-                        CONF_API_KEY: user_input[CONF_API_KEY],
-                        CONF_MODEL_NAME: user_input[CONF_MODEL_NAME],
-                        CONF_BROWSERLESS_URL: user_input.get(CONF_BROWSERLESS_URL, ""),
-                        CONF_COOL_DOWN_SECONDS: user_input.get(CONF_COOL_DOWN_SECONDS, 30),
-                    },
+                    data=data,
                 )
 
         return self.async_show_form(
-            step_id="provider",
-            data_schema=self._provider_schema(user_input),
+            step_id="provider_details",
+            data_schema=self._provider_details_schema(provider_type, user_input),
             errors=errors,
+            description_placeholders={
+                "provider_brand": PROVIDER_TYPES.get(
+                    provider_type, provider_type
+                ),
+            },
         )
 
     async def async_step_scraper(
@@ -280,6 +357,9 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         """Initialize the options flow."""
         self._config_entry = config_entry
+        self._selected_provider_type = config_entry.data.get(
+            CONF_PROVIDER_TYPE, PROVIDER_TYPE_OPENAI
+        )
 
     async def async_step_init(
         self,
@@ -295,8 +375,43 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
         self,
         user_input: dict | None = None,
     ) -> config_entries.FlowResult:
-        """Handle provider reconfiguration."""
+        """Step 1: Select the AI provider brand (reconfigure)."""
         errors: dict[str, str] = {}
+        current_type = self._config_entry.data.get(
+            CONF_PROVIDER_TYPE, PROVIDER_TYPE_OPENAI
+        )
+
+        if user_input is not None:
+            provider_type = user_input.get(CONF_PROVIDER_TYPE, current_type)
+            if provider_type in PROVIDER_TYPES:
+                self._selected_provider_type = provider_type
+                return await self.async_step_provider_details()
+
+            errors[CONF_PROVIDER_TYPE] = "required"
+
+        schema = vol.Schema(
+            {
+                vol.Required(
+                    CONF_PROVIDER_TYPE,
+                    default=current_type,
+                ): vol.In(PROVIDER_TYPES),
+            }
+        )
+
+        return self.async_show_form(
+            step_id="provider",
+            data_schema=schema,
+            errors=errors,
+        )
+
+    async def async_step_provider_details(
+        self,
+        user_input: dict | None = None,
+    ) -> config_entries.FlowResult:
+        """Step 2: Configure provider-specific fields (reconfigure)."""
+        errors: dict[str, str] = {}
+        provider_type = self._selected_provider_type
+        current_data = self._config_entry.data
 
         if user_input is not None:
             try:
@@ -304,7 +419,6 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
                     field
                     for field in [
                         CONF_PROVIDER_NAME,
-                        CONF_PROVIDER_TYPE,
                         CONF_API_KEY,
                         CONF_MODEL_NAME,
                     ]
@@ -314,22 +428,33 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
                     for field in missing:
                         errors[field] = "required"
                 else:
+                    updated_data = {
+                        **current_data,
+                        CONF_PROVIDER_NAME: user_input[CONF_PROVIDER_NAME],
+                        CONF_PROVIDER_TYPE: provider_type,
+                        CONF_API_KEY: user_input[CONF_API_KEY],
+                        CONF_MODEL_NAME: user_input[CONF_MODEL_NAME],
+                        CONF_COOL_DOWN_SECONDS: user_input.get(
+                            CONF_COOL_DOWN_SECONDS, 30
+                        ),
+                    }
+                    if provider_type in OPENAI_COMPATIBLE_TYPES:
+                        updated_data[CONF_BASE_URL] = user_input.get(
+                            CONF_BASE_URL,
+                            current_data.get(CONF_BASE_URL, ""),
+                        )
+                        updated_data[CONF_BROWSERLESS_URL] = user_input.get(
+                            CONF_BROWSERLESS_URL,
+                            current_data.get(CONF_BROWSERLESS_URL, ""),
+                        )
+                    if provider_type == PROVIDER_TYPE_GEMINI:
+                        updated_data[CONF_BROWSERLESS_URL] = user_input.get(
+                            CONF_BROWSERLESS_URL,
+                            current_data.get(CONF_BROWSERLESS_URL, ""),
+                        )
                     self.hass.config_entries.async_update_entry(
                         self._config_entry,
-                        data={
-                            **self._config_entry.data,
-                            CONF_PROVIDER_NAME: user_input[CONF_PROVIDER_NAME],
-                            CONF_PROVIDER_TYPE: user_input[CONF_PROVIDER_TYPE],
-                            CONF_API_KEY: user_input[CONF_API_KEY],
-                            CONF_MODEL_NAME: user_input[CONF_MODEL_NAME],
-                            CONF_BROWSERLESS_URL: user_input.get(
-                                CONF_BROWSERLESS_URL,
-                                self._config_entry.data.get(CONF_BROWSERLESS_URL, ""),
-                            ),
-                            CONF_COOL_DOWN_SECONDS: user_input.get(
-                                CONF_COOL_DOWN_SECONDS, 30
-                            ),
-                        },
+                        data=updated_data,
                     )
                     return self.async_create_entry(title="done", data={})
             except Exception:  # pylint: disable=broad-except  # noqa: BLE001
@@ -339,60 +464,25 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
                 )
                 errors["base"] = "unknown"
 
-        schema = vol.Schema(
-            {
-                vol.Required(
-                    CONF_PROVIDER_NAME,
-                    default=self._config_entry.data.get(
-                        CONF_PROVIDER_NAME, vol.UNDEFINED
-                    ),
-                ): selector.TextSelector(
-                    selector.TextSelectorConfig(type=selector.TextSelectorType.TEXT)
-                ),
-                vol.Required(
-                    CONF_PROVIDER_TYPE,
-                    default=self._config_entry.data.get(
-                        CONF_PROVIDER_TYPE, PROVIDER_TYPE_OPENAI
-                    ),
-                ): vol.In(PROVIDER_TYPES),
-                vol.Required(
-                    CONF_API_KEY,
-                    default=self._config_entry.data.get(CONF_API_KEY, vol.UNDEFINED),
-                ): selector.TextSelector(
-                    selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
-                ),
-                vol.Required(
-                    CONF_MODEL_NAME,
-                    default=self._config_entry.data.get(CONF_MODEL_NAME, vol.UNDEFINED),
-                ): selector.TextSelector(
-                    selector.TextSelectorConfig(type=selector.TextSelectorType.TEXT)
-                ),
-                vol.Optional(
-                    CONF_BROWSERLESS_URL,
-                    default=self._config_entry.data.get(
-                        CONF_BROWSERLESS_URL, vol.UNDEFINED
-                    ),
-                ): selector.TextSelector(
-                    selector.TextSelectorConfig(type=selector.TextSelectorType.URL)
-                ),
-                vol.Optional(
-                    CONF_COOL_DOWN_SECONDS,
-                    default=self._config_entry.data.get(CONF_COOL_DOWN_SECONDS, 30),
-                ): selector.NumberSelector(
-                    selector.NumberSelectorConfig(
-                        mode=selector.NumberSelectorMode.BOX,
-                        min=0,
-                        max=3600,
-                        unit_of_measurement="seconds",
-                    )
-                ),
-            }
-        )
-
         return self.async_show_form(
-            step_id="provider",
-            data_schema=schema,
+            step_id="provider_details",
+            data_schema=self._provider_details_schema(
+                provider_type,
+                {
+                    CONF_PROVIDER_NAME: current_data.get(CONF_PROVIDER_NAME, ""),
+                    CONF_API_KEY: current_data.get(CONF_API_KEY, ""),
+                    CONF_MODEL_NAME: current_data.get(CONF_MODEL_NAME, ""),
+                    CONF_BASE_URL: current_data.get(CONF_BASE_URL, ""),
+                    CONF_BROWSERLESS_URL: current_data.get(CONF_BROWSERLESS_URL, ""),
+                    CONF_COOL_DOWN_SECONDS: current_data.get(CONF_COOL_DOWN_SECONDS, 30),
+                },
+            ),
             errors=errors,
+            description_placeholders={
+                "provider_brand": PROVIDER_TYPES.get(
+                    provider_type, provider_type
+                ),
+            },
         )
 
     async def async_step_scraper(
