@@ -286,6 +286,7 @@ class IntegrationBlueprintApiClient:
         session: aiohttp.ClientSession,
         provider_type: str = PROVIDER_TYPE_OPENAI,
         base_url: str = "",
+        request_timeout: int = 30,
         screenshot_dir: str | None = None,
         screenshot_filename: str | None = None,
         block_consent_modals: bool = True,
@@ -313,6 +314,7 @@ class IntegrationBlueprintApiClient:
         self._status_callback = status_callback
         self._provider_id = provider_id
         self._cooldown_seconds = cooldown_seconds
+        self._request_timeout = request_timeout or 30
 
     def set_status_callback(
         self, callback: Callable[[str], None] | None
@@ -809,7 +811,7 @@ class IntegrationBlueprintApiClient:
         max_attempts = 3
         for attempt in range(max_attempts):
             try:
-                async with async_timeout.timeout(30):
+                async with async_timeout.timeout(self._request_timeout):
                     response = await self._session.request(
                         method=method,
                         url=url,

@@ -23,6 +23,7 @@ from .const import (
     CONF_BLOCK_CONSENT_MODALS,
     CONF_BROWSERLESS_URL,
     CONF_COOL_DOWN_SECONDS,
+    CONF_REQUEST_TIMEOUT,
     CONF_ENTRY_TYPE,
     CONF_EXTRACTION_MODE,
     CONF_INTERVAL_SECONDS,
@@ -93,6 +94,11 @@ def _build_entry_client(
         if provider_entry
         else 0
     )
+    request_timeout = (
+        int(provider_entry.data.get(CONF_REQUEST_TIMEOUT, 30))
+        if provider_entry
+        else 30
+    )
 
     return IntegrationBlueprintApiClient(
         provider_name=provider_name,
@@ -111,6 +117,7 @@ def _build_entry_client(
         block_consent_modals=block_consent_modals,
         provider_id=provider_id,
         cooldown_seconds=cooldown_seconds,
+        request_timeout=request_timeout,
     )
 
 

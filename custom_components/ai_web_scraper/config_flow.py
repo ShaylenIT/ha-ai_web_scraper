@@ -13,6 +13,7 @@ from .const import (
     CONF_BASE_URL,
     CONF_BROWSERLESS_URL,
     CONF_COOL_DOWN_SECONDS,
+    CONF_REQUEST_TIMEOUT,
     CONF_ENTRY_TYPE,
     CONF_EXTRACTION_MODE,
     CONF_INTERVAL_SECONDS,
@@ -72,6 +73,17 @@ def _provider_details_schema(
                 mode=selector.NumberSelectorMode.BOX,
                 min=0,
                 max=3600,
+                unit_of_measurement="seconds",
+            )
+        ),
+        vol.Optional(
+            CONF_REQUEST_TIMEOUT,
+            default=(user_input or {}).get(CONF_REQUEST_TIMEOUT, 60),
+        ): selector.NumberSelector(
+            selector.NumberSelectorConfig(
+                mode=selector.NumberSelectorMode.BOX,
+                min=10,
+                max=300,
                 unit_of_measurement="seconds",
             )
         ),
@@ -273,6 +285,7 @@ class AIWebScraperConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     CONF_API_KEY: user_input[CONF_API_KEY],
                     CONF_MODEL_NAME: user_input[CONF_MODEL_NAME],
                     CONF_COOL_DOWN_SECONDS: user_input.get(CONF_COOL_DOWN_SECONDS, 30),
+                    CONF_REQUEST_TIMEOUT: user_input.get(CONF_REQUEST_TIMEOUT, 60),
                 }
                 if provider_type in OPENAI_COMPATIBLE_TYPES:
                     data[CONF_BASE_URL] = user_input.get(CONF_BASE_URL, "")
@@ -441,6 +454,9 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
                         CONF_COOL_DOWN_SECONDS: user_input.get(
                             CONF_COOL_DOWN_SECONDS, 30
                         ),
+                        CONF_REQUEST_TIMEOUT: user_input.get(
+                            CONF_REQUEST_TIMEOUT, 60
+                        ),
                     }
                     if provider_type in OPENAI_COMPATIBLE_TYPES:
                         updated_data[CONF_BASE_URL] = user_input.get(
@@ -479,6 +495,8 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
                     CONF_BASE_URL: current_data.get(CONF_BASE_URL, ""),
                     CONF_BROWSERLESS_URL: current_data.get(CONF_BROWSERLESS_URL, ""),
                     CONF_COOL_DOWN_SECONDS: current_data.get(CONF_COOL_DOWN_SECONDS, 30),
+                    CONF_REQUEST_TIMEOUT: current_data.get(CONF_REQUEST_TIMEOUT, 60),
+                    CONF_REQUEST_TIMEOUT: current_data.get(CONF_REQUEST_TIMEOUT, 60),
                 },
             ),
             errors=errors,

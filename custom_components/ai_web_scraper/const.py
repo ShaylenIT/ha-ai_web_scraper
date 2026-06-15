@@ -22,6 +22,7 @@ CONF_INTERVAL_SECONDS = "interval_seconds"
 CONF_BLOCK_CONSENT_MODALS = "block_consent_modals"
 CONF_NOTES = "notes"
 CONF_COOL_DOWN_SECONDS = "cool_down_seconds"
+CONF_REQUEST_TIMEOUT = "request_timeout"
 
 CONF_BASE_URL = "base_url"
 
