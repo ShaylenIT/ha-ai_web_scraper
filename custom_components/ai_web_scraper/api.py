@@ -370,7 +370,7 @@ class IntegrationBlueprintApiClient:
         if screenshot is not None and self._screenshot_dir:
             screenshot_path = await self._save_screenshot(screenshot)
 
-        self._set_scraper_status("processing_ai_response")
+        self._set_scraper_status("requesting_ai")
         state = await self._provider_extract(page_text)
         duration = (datetime.now(tz=UTC) - start).total_seconds()
         now = datetime.now(tz=UTC).isoformat()
