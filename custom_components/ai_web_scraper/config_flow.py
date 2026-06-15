@@ -122,7 +122,7 @@ class AIWebScraperConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 ),
                 vol.Optional(
                     CONF_COOL_DOWN_SECONDS,
-                    default=(user_input or {}).get(CONF_COOL_DOWN_SECONDS, 0),
+                    default=(user_input or {}).get(CONF_COOL_DOWN_SECONDS, 30),
                 ): selector.NumberSelector(
                     selector.NumberSelectorConfig(
                         mode=selector.NumberSelectorMode.BOX,
@@ -208,7 +208,7 @@ class AIWebScraperConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_API_KEY: user_input[CONF_API_KEY],
                         CONF_MODEL_NAME: user_input[CONF_MODEL_NAME],
                         CONF_BROWSERLESS_URL: user_input.get(CONF_BROWSERLESS_URL, ""),
-                        CONF_COOL_DOWN_SECONDS: user_input.get(CONF_COOL_DOWN_SECONDS, 0),
+                        CONF_COOL_DOWN_SECONDS: user_input.get(CONF_COOL_DOWN_SECONDS, 30),
                     },
                 )
 
@@ -326,6 +326,9 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
                                 CONF_BROWSERLESS_URL,
                                 self._config_entry.data.get(CONF_BROWSERLESS_URL, ""),
                             ),
+                            CONF_COOL_DOWN_SECONDS: user_input.get(
+                                CONF_COOL_DOWN_SECONDS, 30
+                            ),
                         },
                     )
                     return self.async_create_entry(title="done", data={})
@@ -371,6 +374,17 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
                     ),
                 ): selector.TextSelector(
                     selector.TextSelectorConfig(type=selector.TextSelectorType.URL)
+                ),
+                vol.Optional(
+                    CONF_COOL_DOWN_SECONDS,
+                    default=self._config_entry.data.get(CONF_COOL_DOWN_SECONDS, 30),
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        mode=selector.NumberSelectorMode.BOX,
+                        min=0,
+                        max=3600,
+                        unit_of_measurement="seconds",
+                    )
                 ),
             }
         )
