@@ -36,6 +36,83 @@ from .const import (
 from .data import get_provider_entries
 
 
+def _provider_details_schema(
+    provider_type: str,
+    user_input: dict | None = None,
+) -> vol.Schema:
+    """Build a conditional schema based on the selected provider brand.
+
+    Standalone function so both the config flow and options flow can use it.
+    """
+    schema_dict: dict[vol.Required | vol.Optional, object] = {
+        vol.Required(
+            CONF_PROVIDER_NAME,
+            default=(user_input or {}).get(CONF_PROVIDER_NAME, vol.UNDEFINED),
+        ): selector.TextSelector(
+            selector.TextSelectorConfig(type=selector.TextSelectorType.TEXT)
+        ),
+        vol.Required(
+            CONF_API_KEY,
+            default=(user_input or {}).get(CONF_API_KEY, vol.UNDEFINED),
+        ): selector.TextSelector(
+            selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
+        ),
+        vol.Required(
+            CONF_MODEL_NAME,
+            default=(user_input or {}).get(CONF_MODEL_NAME, vol.UNDEFINED),
+        ): selector.TextSelector(
+            selector.TextSelectorConfig(type=selector.TextSelectorType.TEXT)
+        ),
+        vol.Optional(
+            CONF_COOL_DOWN_SECONDS,
+            default=(user_input or {}).get(CONF_COOL_DOWN_SECONDS, 30),
+        ): selector.NumberSelector(
+            selector.NumberSelectorConfig(
+                mode=selector.NumberSelectorMode.BOX,
+                min=0,
+                max=3600,
+                unit_of_measurement="seconds",
+            )
+        ),
+    }
+
+    # OpenAI-compatible providers: show base URL (pre-filled for known brands)
+    if provider_type in OPENAI_COMPATIBLE_TYPES:
+        default_url = PROVIDER_BASE_URLS.get(provider_type, "")
+        schema_dict[
+            vol.Optional(
+                CONF_BASE_URL,
+                default=(user_input or {}).get(
+                    CONF_BASE_URL, default_url or vol.UNDEFINED
+                ),
+            )
+        ] = selector.TextSelector(
+            selector.TextSelectorConfig(type=selector.TextSelectorType.URL)
+        )
+        # Browserless URL is available for all compatible providers
+        schema_dict[
+            vol.Optional(
+                CONF_BROWSERLESS_URL,
+                default=(user_input or {}).get(CONF_BROWSERLESS_URL, vol.UNDEFINED),
+            )
+        ] = selector.TextSelector(
+            selector.TextSelectorConfig(type=selector.TextSelectorType.URL)
+        )
+
+    # Gemini: show browserless URL but no base URL
+    if provider_type == PROVIDER_TYPE_GEMINI:
+        schema_dict[
+            vol.Optional(
+                CONF_BROWSERLESS_URL,
+                default=(user_input or {}).get(CONF_BROWSERLESS_URL, vol.UNDEFINED),
+            )
+        ] = selector.TextSelector(
+            selector.TextSelectorConfig(type=selector.TextSelectorType.URL)
+        )
+
+    return vol.Schema(schema_dict)
+
+
 class AIWebScraperConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Config flow for ai_web_scraper."""
 
@@ -86,80 +163,6 @@ class AIWebScraperConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     def _provider_options(self) -> dict[str, str]:
         return {entry.entry_id: entry.title for entry in self._provider_entries()}
-
-    def _provider_details_schema(
-        self,
-        provider_type: str,
-        user_input: dict | None = None,
-    ) -> vol.Schema:
-        """Build a conditional schema based on the selected provider brand."""
-        schema_dict: dict[vol.Required | vol.Optional, object] = {
-            vol.Required(
-                CONF_PROVIDER_NAME,
-                default=(user_input or {}).get(CONF_PROVIDER_NAME, vol.UNDEFINED),
-            ): selector.TextSelector(
-                selector.TextSelectorConfig(type=selector.TextSelectorType.TEXT)
-            ),
-            vol.Required(
-                CONF_API_KEY,
-                default=(user_input or {}).get(CONF_API_KEY, vol.UNDEFINED),
-            ): selector.TextSelector(
-                selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
-            ),
-            vol.Required(
-                CONF_MODEL_NAME,
-                default=(user_input or {}).get(CONF_MODEL_NAME, vol.UNDEFINED),
-            ): selector.TextSelector(
-                selector.TextSelectorConfig(type=selector.TextSelectorType.TEXT)
-            ),
-            vol.Optional(
-                CONF_COOL_DOWN_SECONDS,
-                default=(user_input or {}).get(CONF_COOL_DOWN_SECONDS, 30),
-            ): selector.NumberSelector(
-                selector.NumberSelectorConfig(
-                    mode=selector.NumberSelectorMode.BOX,
-                    min=0,
-                    max=3600,
-                    unit_of_measurement="seconds",
-                )
-            ),
-        }
-
-        # OpenAI-compatible providers: show base URL (pre-filled for known brands)
-        if provider_type in OPENAI_COMPATIBLE_TYPES:
-            default_url = PROVIDER_BASE_URLS.get(provider_type, "")
-            schema_dict[
-                vol.Optional(
-                    CONF_BASE_URL,
-                    default=(user_input or {}).get(
-                        CONF_BASE_URL, default_url or vol.UNDEFINED
-                    ),
-                )
-            ] = selector.TextSelector(
-                selector.TextSelectorConfig(type=selector.TextSelectorType.URL)
-            )
-            # Browserless URL is available for all compatible providers
-            schema_dict[
-                vol.Optional(
-                    CONF_BROWSERLESS_URL,
-                    default=(user_input or {}).get(CONF_BROWSERLESS_URL, vol.UNDEFINED),
-                )
-            ] = selector.TextSelector(
-                selector.TextSelectorConfig(type=selector.TextSelectorType.URL)
-            )
-
-        # Gemini: show browserless URL but no base URL
-        if provider_type == PROVIDER_TYPE_GEMINI:
-            schema_dict[
-                vol.Optional(
-                    CONF_BROWSERLESS_URL,
-                    default=(user_input or {}).get(CONF_BROWSERLESS_URL, vol.UNDEFINED),
-                )
-            ] = selector.TextSelector(
-                selector.TextSelectorConfig(type=selector.TextSelectorType.URL)
-            )
-
-        return vol.Schema(schema_dict)
 
     def _scraper_schema(
         self,
@@ -286,7 +289,7 @@ class AIWebScraperConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="provider_details",
-            data_schema=self._provider_details_schema(provider_type, user_input),
+            data_schema=_provider_details_schema(provider_type, user_input),
             errors=errors,
             description_placeholders={
                 "provider_brand": PROVIDER_TYPES.get(
@@ -466,7 +469,7 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
 
         return self.async_show_form(
             step_id="provider_details",
-            data_schema=self._provider_details_schema(
+            data_schema=_provider_details_schema(
                 provider_type,
                 {
                     CONF_PROVIDER_NAME: current_data.get(CONF_PROVIDER_NAME, ""),
