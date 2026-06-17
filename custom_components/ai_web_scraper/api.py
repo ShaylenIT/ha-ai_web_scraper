@@ -615,9 +615,9 @@ class IntegrationBlueprintApiClient:
                 # Find target elements inside ancestor with the right class
                 for anc_cls in ancestor_classes:
                     anc_pattern = (
-                        r'<[a-z0-9]+[^>]*class="[^"]*\\b'
+                        r'<[a-z0-9]+[^>]*class="[^"]*\b'
                         + re.escape(anc_cls)
-                        + r'\\b[^"]*"[^>]*>.*?'
+                        + r'\b[^"]*"[^>]*>.*?'
                         + f"(<{tag_pattern}(?:\s+[^>]*{class_attr}[^>]*)?>)"
                         + "(.*?)"
                         + f"(</{tag_pattern}>)"
