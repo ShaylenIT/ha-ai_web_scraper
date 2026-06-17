@@ -608,7 +608,13 @@ class IntegrationBlueprintApiClient:
             # Build regex to find matching elements
             # Match: <tag class="...target_class...">...content...</tag>
             # Where the element is inside an ancestor with ancestor_class
-            class_attr = f'class=\"[^"]*\\b{re.escape(target_class)}\\b[^"]*\"' if target_class else ""
+            # NOTE: Avoid f-strings for regex patterns containing backslash escapes
+            # to maintain Python 3.14 compatibility (strict f-string parser).
+            if target_class:
+                escaped = re.escape(target_class)
+                class_attr = 'class="[^"]*\\b' + escaped + '\\b[^"]*"'
+            else:
+                class_attr = ""
             tag_pattern = re.escape(target_tag) if target_tag != "[a-z0-9]+" else target_tag
 
             if ancestor_classes:
@@ -618,9 +624,9 @@ class IntegrationBlueprintApiClient:
                         r'(<[a-z0-9]+[^>]*class="[^"]*\b'
                         + re.escape(anc_cls)
                         + r'\b[^"]*"[^>]*>)(.*?)'
-                        + f"(<{tag_pattern}(?:\s+[^>]*{class_attr}[^>]*)?>)"
+                        + "(<" + tag_pattern + r"(?:\s+[^>]*" + class_attr + r"[^>]*)?>)"
                         + "(.*?)"
-                        + f"(</{tag_pattern}>)"
+                        + "(</" + tag_pattern + ">)"
                     )
                     # Apply repeatedly since nested matches could overlap
                     for _ in range(5):
@@ -645,9 +651,9 @@ class IntegrationBlueprintApiClient:
             else:
                 # Direct selector — match elements anywhere
                 pattern = (
-                    f"(<{tag_pattern}(?:\s+[^>]*{class_attr}[^>]*)?>)"
+                    "(<" + tag_pattern + r"(?:\s+[^>]*" + class_attr + r"[^>]*)?>)"
                     + "(.*?)"
-                    + f"(</{tag_pattern}>)"
+                    + "(</" + tag_pattern + ">)"
                 )
                 for _ in range(5):
                     new_text = re.sub(
