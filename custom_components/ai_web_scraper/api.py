@@ -528,6 +528,145 @@ class IntegrationBlueprintApiClient:
         "})();"
     )
 
+    @staticmethod
+    def _strikethrough_from_css(html_text: str) -> str:
+        """Inject ~~ markers around elements targeted by CSS line-through rules.
+
+        Extracts CSS rules from <style> blocks that set text-decoration to
+        line-through, then applies the selectors to the HTML body to wrap
+        matching text content in ~~ markers. This catches strikethroughs in
+        DOM mode (no Browserless) that would otherwise be missed because
+        no browser computes the CSS.
+
+        Handles: .class, tag, tag.class, .parent .child descendants, and
+        inline style="text-decoration: line-through".
+        """
+        if not isinstance(html_text, str) or "line-through" not in html_text:
+            return html_text
+
+        # --- Step 1: inline style="text-decoration: line-through" ---
+        html_text = re.sub(
+            r"(?is)(<[a-z][^>]*?style=[\"'])(?:[^\"']*?)text-decoration\s*:\s*line-through[^\"']*?([\"'][^>]*>)(.*?)(</[a-z]+>)",
+            lambda m: m.group(1) + m.group(2) + "~~" + m.group(3) + "~~" + m.group(4),
+            html_text,
+        )
+
+        # --- Step 2: extract CSS rules from <style> blocks ---
+        style_blocks = re.findall(r"(?is)<style[^>]*>(.*?)</style>", html_text)
+
+        selectors = []
+        for block in style_blocks:
+            # Match rules like: selector { ... text-decoration: line-through ... }
+            rules = re.findall(
+                r"(?is)([^@{}]*?)\s*\{[^}]*?text-decoration\s*:\s*line-through[^}]*?\}",
+                block,
+            )
+            for rule in rules:
+                for sel in re.split(r"\s*,\s*", rule.strip()):
+                    sel = sel.strip()
+                    if sel:
+                        # Strip pseudo-classes/elements
+                        sel = re.sub(r":{1,2}[a-z-]+(?:\([^)]*\))?", "", sel).strip()
+                        if sel:
+                            selectors.append(sel)
+
+        if not selectors:
+            return html_text
+
+        # --- Step 3: apply each selector ---
+        for selector in selectors:
+            # Split into parts by space or >  (handles descendant/child combinators)
+            parts = re.split(r"\s*(?:>|\s)\s*", selector)
+            # The rightmost part is the target element
+            target = parts[-1]
+            # Parts to the left are ancestor constraints
+            ancestors = parts[:-1]
+
+            # Parse the target selector into tag name and class constraints
+            target_tag = ""
+            target_class = ""
+            if target.startswith("."):
+                # Pure class selector: .foo
+                target_class = target[1:]
+                target_tag = "[a-z0-9]+"
+            elif "." in target:
+                # Tag + class: span.foo
+                target_tag, target_class = target.split(".", 1)
+            else:
+                # Pure tag: span
+                target_tag = target
+
+            # Build ancestor class constraints
+            ancestor_classes = []
+            for anc in ancestors:
+                if anc.startswith("."):
+                    ancestor_classes.append(anc[1:])
+                elif "." in anc:
+                    _, cls = anc.split(".", 1)
+                    ancestor_classes.append(cls)
+
+            # Build regex to find matching elements
+            # Match: <tag class="...target_class...">...content...</tag>
+            # Where the element is inside an ancestor with ancestor_class
+            class_attr = f'class=\"[^"]*\\b{re.escape(target_class)}\\b[^"]*\"' if target_class else ""
+            tag_pattern = re.escape(target_tag) if target_tag != "[a-z0-9]+" else target_tag
+
+            if ancestor_classes:
+                # Find target elements inside ancestor with the right class
+                for anc_cls in ancestor_classes:
+                    anc_pattern = (
+                        r"<[a-z0-9]+[^>]*class=\"[^"]*\\b"
+                        + re.escape(anc_cls)
+                        + r"\\b[^"]*\"[^>]*>.*?"
+                        + f"(<{tag_pattern}(?:\s+[^>]*{class_attr}[^>]*)?>)"
+                        + "(.*?)"
+                        + f"(</{tag_pattern}>)"
+                    )
+                    # Apply repeatedly since nested matches could overlap
+                    for _ in range(5):
+                        new_text = re.sub(
+                            anc_pattern,
+                            lambda m: (
+                                m.group(1)
+                                + ("~~" if "~~" not in m.group(2) else "")
+                                + m.group(2)
+                                + ("~~" if "~~" not in m.group(2) else "")
+                                + m.group(3)
+                            ),
+                            html_text,
+                            count=0,
+                            flags=re.IGNORECASE | re.DOTALL,
+                        )
+                        if new_text == html_text:
+                            break
+                        html_text = new_text
+            else:
+                # Direct selector — match elements anywhere
+                pattern = (
+                    f"(<{tag_pattern}(?:\s+[^>]*{class_attr}[^>]*)?>)"
+                    + "(.*?)"
+                    + f"(</{tag_pattern}>)"
+                )
+                for _ in range(5):
+                    new_text = re.sub(
+                        pattern,
+                        lambda m: (
+                            m.group(1)
+                            + ("~~" if "~~" not in m.group(2) else "")
+                            + m.group(2)
+                            + ("~~" if "~~" not in m.group(2) else "")
+                            + m.group(3)
+                        ),
+                        html_text,
+                        count=0,
+                        flags=re.IGNORECASE | re.DOTALL,
+                    )
+                    if new_text == html_text:
+                        break
+                    html_text = new_text
+
+        return html_text
+
     async def _fetch_browserless_page_text(self, url: str) -> str:
         """
         Fetch rendered page content via browserless.
@@ -845,9 +984,16 @@ class IntegrationBlueprintApiClient:
         (via `_STRIKETHROUGH_SCRIPT`) so the output preserves which text
         was struck through — something regex-only approaches miss because
         they don't interpret CSS.
+
+        When using DOM mode (direct HTTP fetch), CSS rules from <style>
+        blocks are parsed to apply the same strikethrough treatment
+        via `_strikethrough_from_css`.
         """
         if not isinstance(page_text, str):
             return ""
+
+        # Inject ~~ markers from CSS line-through rules (DOM mode)
+        page_text = self._strikethrough_from_css(page_text)
 
         # Clean up empty ~~ markers left by injected Browserless script
         page_text = page_text.replace("~~~~", "")
