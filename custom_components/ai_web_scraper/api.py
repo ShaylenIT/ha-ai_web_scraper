@@ -970,10 +970,6 @@ class IntegrationBlueprintApiClient:
         provider = self._get_provider()
         return await provider.extract(page_text)
 
-    def _looks_like_html(self, text: str) -> bool:
-        """Detect whether a plain string looks like raw HTML."""
-        return Provider._looks_like_html(text)
-
     def _normalize_page_text(self, page_text: str) -> str:
         """Normalize page text before sending it to the AI provider.
 

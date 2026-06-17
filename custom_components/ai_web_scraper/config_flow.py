@@ -496,7 +496,6 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
                     CONF_BROWSERLESS_URL: current_data.get(CONF_BROWSERLESS_URL, ""),
                     CONF_COOL_DOWN_SECONDS: current_data.get(CONF_COOL_DOWN_SECONDS, 30),
                     CONF_REQUEST_TIMEOUT: current_data.get(CONF_REQUEST_TIMEOUT, 60),
-                    CONF_REQUEST_TIMEOUT: current_data.get(CONF_REQUEST_TIMEOUT, 60),
                 },
             ),
             errors=errors,

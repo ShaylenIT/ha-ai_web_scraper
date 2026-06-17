@@ -102,7 +102,7 @@ async def test_coordinator_fetches_scrape_data(hass: HomeAssistant) -> None:
 
     entry.runtime_data = IntegrationBlueprintData(
         client=client,
-        integration=None,
+        integration=AsyncMock(),
         coordinator=coordinator,
     )
 
@@ -164,7 +164,7 @@ async def test_coordinator_copies_latest_to_previous_on_scrape(
 
     entry.runtime_data = IntegrationBlueprintData(
         client=client,
-        integration=None,
+        integration=AsyncMock(),
         coordinator=coordinator,
     )
 
@@ -266,7 +266,7 @@ async def test_coordinator_copies_latest_to_previous_after_storage_restore(
 
     entry.runtime_data = IntegrationBlueprintData(
         client=client,
-        integration=None,
+        integration=AsyncMock(),
         coordinator=coordinator,
     )
 
@@ -324,7 +324,7 @@ async def test_coordinator_logs_scrape_failure(
 
     entry.runtime_data = IntegrationBlueprintData(
         client=client,
-        integration=None,
+        integration=AsyncMock(),
         coordinator=coordinator,
     )
 

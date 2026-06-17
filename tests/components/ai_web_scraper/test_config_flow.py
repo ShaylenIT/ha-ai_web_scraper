@@ -259,7 +259,6 @@ async def test_scraper_reconfigure_updates_entry(hass: HomeAssistant) -> None:
             CONF_URL: "https://example.org",
             CONF_PROMPT: "Update text",
             CONF_EXTRACTION_MODE: "browser_based",
-            CONF_BLOCK_CONSENT_MODALS: False,
         },
     )
 
@@ -268,4 +267,3 @@ async def test_scraper_reconfigure_updates_entry(hass: HomeAssistant) -> None:
     assert scraper_entry.data[CONF_URL] == "https://example.org"
     assert scraper_entry.data[CONF_EXTRACTION_MODE] == "browser_based"
     assert scraper_entry.data[CONF_INTERVAL_SECONDS] == 30
-    assert scraper_entry.options[CONF_BLOCK_CONSENT_MODALS] is False

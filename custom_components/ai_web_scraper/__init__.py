@@ -20,7 +20,6 @@ from .api import IntegrationBlueprintApiClient
 from .const import (
     CONF_API_KEY,
     CONF_BASE_URL,
-    CONF_BLOCK_CONSENT_MODALS,
     CONF_BROWSERLESS_URL,
     CONF_COOL_DOWN_SECONDS,
     CONF_REQUEST_TIMEOUT,
@@ -197,13 +196,13 @@ async def async_setup_entry(
     # while waiting in the semaphore queue behind other scrapers.
     # Entities are already live with stored data from async_load_from_storage().
     async def _initial_refresh() -> None:
-        await coordinator.async_config_entry_first_refresh()
         # Stagger scraper startups so each one doesn't slam Browserless
         # immediately. The global semaphore in api.py already serialises
         # concurrent scrape operations — this extra delay spreads out the
         # initial load across several seconds to further help Browserless
         # keep up.
         await asyncio.sleep(3)
+        await coordinator.async_config_entry_first_refresh()
 
     refresh_task = hass.async_create_task(_initial_refresh())
     entry.async_on_unload(refresh_task.cancel)
