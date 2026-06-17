@@ -20,9 +20,9 @@ from .api import IntegrationBlueprintApiClient
 from .const import (
     CONF_API_KEY,
     CONF_BASE_URL,
+    CONF_BLOCK_CONSENT_MODALS,
     CONF_BROWSERLESS_URL,
     CONF_COOL_DOWN_SECONDS,
-    CONF_REQUEST_TIMEOUT,
     CONF_ENTRY_TYPE,
     CONF_EXTRACTION_MODE,
     CONF_INTERVAL_SECONDS,
@@ -31,17 +31,17 @@ from .const import (
     CONF_PROVIDER_ID,
     CONF_PROVIDER_NAME,
     CONF_PROVIDER_TYPE,
+    CONF_REQUEST_TIMEOUT,
     CONF_SCRAPER_NAME,
     CONF_URL,
-    CONF_BLOCK_CONSENT_MODALS,
     DOMAIN,
     ENTRY_TYPE_PROVIDER,
     ENTRY_TYPE_SCRAPER,
     LOGGER,
-    SAVE_MARKDOWN_DEBUG,
     OPENAI_COMPATIBLE_TYPES,
     PROVIDER_BASE_URLS,
     PROVIDER_TYPE_OPENAI,
+    SAVE_MARKDOWN_DEBUG,
 )
 from .coordinator import AIWebScraperDataUpdateCoordinator
 from .data import (
@@ -240,7 +240,8 @@ async def async_on_scraper_config_update(
     hass: HomeAssistant,
     entry: IntegrationBlueprintConfigEntry,
 ) -> None:
-    """Handle scraper config updates without full reload.
+    """
+    Handle scraper config updates without full reload.
 
     Rebuilds the API client in-place so entities stay available.
     The number entity (scrape interval) already updates the coordinator

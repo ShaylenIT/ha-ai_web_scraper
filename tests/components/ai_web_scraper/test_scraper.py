@@ -3,7 +3,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+import socket
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock
@@ -18,6 +19,7 @@ from homeassistant.config_entries import ConfigEntry
 from custom_components.ai_web_scraper import __init__ as integration_init
 from custom_components.ai_web_scraper.api import (
     IntegrationBlueprintApiClient,
+    IntegrationBlueprintApiClientCommunicationError,
     IntegrationBlueprintApiClientError,
 )
 from custom_components.ai_web_scraper.binary_sensor import (
@@ -28,10 +30,6 @@ from custom_components.ai_web_scraper.button import (
 )
 from custom_components.ai_web_scraper.button import (
     IntegrationBlueprintButton,
-)
-from custom_components.ai_web_scraper.switch import (
-    ENTITY_DESCRIPTIONS as SWITCH_ENTITY_DESCRIPTIONS,
-    IntegrationBlueprintSwitch,
 )
 from custom_components.ai_web_scraper.const import (
     CONF_API_KEY,
@@ -53,7 +51,14 @@ from custom_components.ai_web_scraper.coordinator import (
 )
 from custom_components.ai_web_scraper.data import IntegrationBlueprintData
 from custom_components.ai_web_scraper.image import IntegrationBlueprintImage
+from custom_components.ai_web_scraper.number import IntegrationBlueprintNumber
 from custom_components.ai_web_scraper.sensor import IntegrationBlueprintSensor
+from custom_components.ai_web_scraper.switch import (
+    ENTITY_DESCRIPTIONS as SWITCH_ENTITY_DESCRIPTIONS,
+)
+from custom_components.ai_web_scraper.switch import (
+    IntegrationBlueprintSwitch,
+)
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
@@ -529,7 +534,7 @@ def test_last_scrape_sensor_reports_timestamp() -> None:
     )
 
     assert sensor.name == "Test Scraper Last Scrape"
-    assert sensor.native_value == datetime(2026, 6, 10, 0, 0, tzinfo=timezone.utc)
+    assert sensor.native_value == datetime(2026, 6, 10, 0, 0, tzinfo=UTC)
     assert sensor.extra_state_attributes == state["attributes"]
 
 
@@ -568,7 +573,8 @@ def test_interval_number_reports_minutes() -> None:
     )
 
     assert number_entity.name == "Test Scraper Scrape interval"
-    assert number_entity.native_value == 2
+    expected_minutes = 2
+    assert number_entity.native_value == expected_minutes
 
 
 def test_status_binary_sensor_failure_state() -> None:

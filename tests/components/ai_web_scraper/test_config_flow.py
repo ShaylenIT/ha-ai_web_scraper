@@ -11,6 +11,7 @@ from homeassistant.data_entry_flow import RESULT_TYPE_CREATE_ENTRY, RESULT_TYPE_
 
 from custom_components.ai_web_scraper.const import (
     CONF_API_KEY,
+    CONF_BLOCK_CONSENT_MODALS,
     CONF_ENTRY_TYPE,
     CONF_EXTRACTION_MODE,
     CONF_INTERVAL_SECONDS,
@@ -266,4 +267,5 @@ async def test_scraper_reconfigure_updates_entry(hass: HomeAssistant) -> None:
     assert scraper_entry.data[CONF_SCRAPER_NAME] == "Updated Scraper"
     assert scraper_entry.data[CONF_URL] == "https://example.org"
     assert scraper_entry.data[CONF_EXTRACTION_MODE] == "browser_based"
-    assert scraper_entry.data[CONF_INTERVAL_SECONDS] == 30
+    expected_interval = 30
+    assert scraper_entry.data[CONF_INTERVAL_SECONDS] == expected_interval

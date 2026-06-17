@@ -13,7 +13,6 @@ from .const import (
     CONF_BASE_URL,
     CONF_BROWSERLESS_URL,
     CONF_COOL_DOWN_SECONDS,
-    CONF_REQUEST_TIMEOUT,
     CONF_ENTRY_TYPE,
     CONF_EXTRACTION_MODE,
     CONF_INTERVAL_SECONDS,
@@ -22,6 +21,7 @@ from .const import (
     CONF_PROVIDER_ID,
     CONF_PROVIDER_NAME,
     CONF_PROVIDER_TYPE,
+    CONF_REQUEST_TIMEOUT,
     CONF_SCRAPER_NAME,
     CONF_URL,
     DOMAIN,
@@ -42,7 +42,8 @@ def _provider_details_schema(
     provider_type: str,
     user_input: dict | None = None,
 ) -> vol.Schema:
-    """Build a conditional schema based on the selected provider brand.
+    """
+    Build a conditional schema based on the selected provider brand.
 
     Standalone function so both the config flow and options flow can use it.
     """
@@ -552,7 +553,7 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
                     self._config_entry.entry_id,
                 )
                 errors["base"] = "unknown"
- 
+
         schema_dict: dict[vol.Required, object] = {
             vol.Required(
                 CONF_SCRAPER_NAME,

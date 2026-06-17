@@ -4,28 +4,27 @@ from __future__ import annotations
 
 import asyncio
 import inspect
-import os
 import re
 import socket
-from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
-import aiohttp
 import aiofiles
+import aiohttp
 import async_timeout
 
 from . import html2text
-
 from .const import (
     LOGGER,
-    OPENAI_COMPATIBLE_TYPES,
     PROVIDER_BASE_URLS,
     PROVIDER_TYPE_GEMINI,
     PROVIDER_TYPE_OPENAI,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 HTTP_STATUS_NOT_FOUND = 404
 MAX_STATE_CHARS = 255
@@ -89,7 +88,8 @@ class Provider:
 
 
 class OpenAICompatibleProvider(Provider):
-    """Provider for any OpenAI-compatible API (configurable base URL).
+    """
+    Provider for any OpenAI-compatible API (configurable base URL).
 
     Supports: OpenAI, Groq, LocalAI, Ollama (OpenAI-compatible endpoint),
     Open WebUI, OpenRouter, and any custom OpenAI-compatible endpoint.
@@ -292,6 +292,7 @@ class IntegrationBlueprintApiClient:
         screenshot_filename: str | None = None,
         markdown_dir: str | None = None,
         markdown_filename: str | None = None,
+        *,
         block_consent_modals: bool = True,
         save_markdown_debug: bool = False,
         status_callback: Callable[[str], None] | None = None,
@@ -439,7 +440,8 @@ class IntegrationBlueprintApiClient:
         }
 
     async def _get_page_text(self, url: str) -> str:
-        """Fetch page text from the target URL or browserless endpoint.
+        """
+        Fetch page text from the target URL or browserless endpoint.
 
         Uses Browserless only when both a browserless_url is configured
         AND the extraction mode is set to "browser_based". If the scraper
@@ -530,7 +532,8 @@ class IntegrationBlueprintApiClient:
 
     @staticmethod
     def _strikethrough_from_css(html_text: str) -> str:
-        """Inject ~~ markers around elements targeted by CSS line-through rules.
+        """
+        Inject ~~ markers around elements targeted by CSS line-through rules.
 
         Extracts CSS rules from <style> blocks that set text-decoration to
         line-through, then applies the selectors to the HTML body to wrap
@@ -562,13 +565,13 @@ class IntegrationBlueprintApiClient:
                 block,
             )
             for rule in rules:
-                for sel in re.split(r"\s*,\s*", rule.strip()):
-                    sel = sel.strip()
+                for raw_sel in re.split(r"\s*,\s*", rule.strip()):
+                    sel = raw_sel.strip()
                     if sel:
                         # Strip pseudo-classes/elements
-                        sel = re.sub(r":{1,2}[a-z-]+(?:\([^)]*\))?", "", sel).strip()
-                        if sel:
-                            selectors.append(sel)
+                        clean_sel = re.sub(r":{1,2}[a-z-]+(?:\([^)]*\))?", "", sel).strip()
+                        if clean_sel:
+                            selectors.append(clean_sel)
 
         if not selectors:
             return html_text
@@ -873,7 +876,7 @@ class IntegrationBlueprintApiClient:
                     raise IntegrationBlueprintApiClientCommunicationError(
                         msg
                     ) from exception
-                if attempt == 0 and 500 <= exception.status < 600:
+                if attempt == 0 and RETRY_HTTP_5XX_LOWER <= exception.status < RETRY_HTTP_5XX_UPPER:
                     await asyncio.sleep(3)
                     continue
                 msg = (
@@ -926,8 +929,9 @@ class IntegrationBlueprintApiClient:
 
     async def _save_screenshot(self, screenshot: bytes) -> str:
         if not self._screenshot_dir or not self._screenshot_filename:
+            msg = "Screenshot storage location is not configured."
             raise IntegrationBlueprintApiClientError(
-                "Screenshot storage location is not configured."
+                msg
             )
 
         screenshot_path = Path(self._screenshot_dir) / self._screenshot_filename
@@ -937,7 +941,8 @@ class IntegrationBlueprintApiClient:
         return str(screenshot_path)
 
     async def _save_debug_markdown(self, markdown_text: str) -> None:
-        """Save normalized Markdown to disk for debugging.
+        """
+        Save normalized Markdown to disk for debugging.
 
         Writes the normalized Markdown (before AI extraction) to the
         configured markdown directory for visual inspection.
@@ -977,7 +982,8 @@ class IntegrationBlueprintApiClient:
         return await provider.extract(page_text)
 
     def _normalize_page_text(self, page_text: str) -> str:
-        """Normalize page text before sending it to the AI provider.
+        """
+        Normalize page text before sending it to the AI provider.
 
         Converts HTML to Markdown to preserve structural information
         (headings, links, lists, bold, italic, tables) that helps AI
