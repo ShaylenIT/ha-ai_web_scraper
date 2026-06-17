@@ -1125,4 +1125,3 @@ async def test_block_consent_modals_switch(hass: HomeAssistant) -> None:
     # Turn on
     await switch.async_turn_on()
     assert entry.options["block_consent_modals"] is True
-

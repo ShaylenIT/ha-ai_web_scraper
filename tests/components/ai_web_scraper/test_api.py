@@ -126,9 +126,9 @@ def test_provider_factory_uses_correct_default_base_url() -> None:
         assert isinstance(provider, OpenAICompatibleProvider)
         # The URL is only resolved when extract() is called, but we can
         # verify the internal _base_url was set correctly
-        assert provider._base_url == PROVIDER_BASE_URLS.get(
-            provider_type
-        ), f"Wrong base URL for {provider_type}"
+        assert provider._base_url == PROVIDER_BASE_URLS.get(provider_type), (
+            f"Wrong base URL for {provider_type}"
+        )
 
 
 def test_provider_factory_uses_custom_base_url() -> None:
@@ -396,7 +396,9 @@ def test_browserless_screenshot_falls_back_on_400_bad_request() -> None:
         screenshot_filename="scraper-entry-id.png",
     )
 
-    screenshot = asyncio.run(client._fetch_browserless_page_screenshot("https://example.com"))
+    screenshot = asyncio.run(
+        client._fetch_browserless_page_screenshot("https://example.com")
+    )
 
     assert screenshot == b"PNGDATA"
     assert session.post.await_count == 3
@@ -432,7 +434,9 @@ def test_browserless_screenshot_uses_standard_payload_first() -> None:
         screenshot_filename="scraper-entry-id.png",
     )
 
-    screenshot = asyncio.run(client._fetch_browserless_page_screenshot("https://example.com"))
+    screenshot = asyncio.run(
+        client._fetch_browserless_page_screenshot("https://example.com")
+    )
 
     assert screenshot == b"PNGDATA"
     assert session.post.await_count == 1
@@ -450,4 +454,3 @@ def test_browserless_screenshot_uses_standard_payload_first() -> None:
         "fullPage": True,
         "type": "png",
     }
-

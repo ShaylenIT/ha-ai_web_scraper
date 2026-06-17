@@ -64,9 +64,13 @@ class IntegrationBlueprintNumber(IntegrationBlueprintEntity, NumberEntity):
     @property
     def native_value(self) -> int | float | None:
         """Return the current scrape interval in minutes."""
-        interval_seconds = self.coordinator.config_entry.data.get(CONF_INTERVAL_SECONDS, 0)
+        interval_seconds = self.coordinator.config_entry.data.get(
+            CONF_INTERVAL_SECONDS, 0
+        )
         interval_minutes = interval_seconds / 60
-        return int(interval_minutes) if interval_minutes.is_integer() else interval_minutes
+        return (
+            int(interval_minutes) if interval_minutes.is_integer() else interval_minutes
+        )
 
     @property
     def native_min_value(self) -> int:

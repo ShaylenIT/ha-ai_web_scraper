@@ -130,9 +130,7 @@ class AIWebScraperDataUpdateCoordinator(DataUpdateCoordinator):
                 self.config_entry.title,
             )
             error_message = str(exception)
-            previous_state = (
-                self._get_display_state(self.data) if self.data else None
-            )
+            previous_state = self._get_display_state(self.data) if self.data else None
             failure_data = {
                 "state": previous_state,
                 "attributes": {

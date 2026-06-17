@@ -239,9 +239,7 @@ class AIWebScraperConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             {
                 vol.Required(
                     CONF_PROVIDER_TYPE,
-                    default=(user_input or {}).get(
-                        CONF_PROVIDER_TYPE, vol.UNDEFINED
-                    ),
+                    default=(user_input or {}).get(CONF_PROVIDER_TYPE, vol.UNDEFINED),
                 ): vol.In(PROVIDER_TYPES),
             }
         )
@@ -307,9 +305,7 @@ class AIWebScraperConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=_provider_details_schema(provider_type, user_input),
             errors=errors,
             description_placeholders={
-                "provider_brand": PROVIDER_TYPES.get(
-                    provider_type, provider_type
-                ),
+                "provider_brand": PROVIDER_TYPES.get(provider_type, provider_type),
             },
         )
 
@@ -455,9 +451,7 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
                         CONF_COOL_DOWN_SECONDS: user_input.get(
                             CONF_COOL_DOWN_SECONDS, 30
                         ),
-                        CONF_REQUEST_TIMEOUT: user_input.get(
-                            CONF_REQUEST_TIMEOUT, 60
-                        ),
+                        CONF_REQUEST_TIMEOUT: user_input.get(CONF_REQUEST_TIMEOUT, 60),
                     }
                     if provider_type in OPENAI_COMPATIBLE_TYPES:
                         updated_data[CONF_BASE_URL] = user_input.get(
@@ -495,15 +489,15 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
                     CONF_MODEL_NAME: current_data.get(CONF_MODEL_NAME, ""),
                     CONF_BASE_URL: current_data.get(CONF_BASE_URL, ""),
                     CONF_BROWSERLESS_URL: current_data.get(CONF_BROWSERLESS_URL, ""),
-                    CONF_COOL_DOWN_SECONDS: current_data.get(CONF_COOL_DOWN_SECONDS, 30),
+                    CONF_COOL_DOWN_SECONDS: current_data.get(
+                        CONF_COOL_DOWN_SECONDS, 30
+                    ),
                     CONF_REQUEST_TIMEOUT: current_data.get(CONF_REQUEST_TIMEOUT, 60),
                 },
             ),
             errors=errors,
             description_placeholders={
-                "provider_brand": PROVIDER_TYPES.get(
-                    provider_type, provider_type
-                ),
+                "provider_brand": PROVIDER_TYPES.get(provider_type, provider_type),
             },
         )
 

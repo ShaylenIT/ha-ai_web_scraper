@@ -43,7 +43,6 @@ SCRAPE_CONCURRENCY_SEMAPHORE = asyncio.Semaphore(1)
 _last_provider_api_call: dict[str, datetime] = {}
 
 
-
 class Provider:
     """Base provider implementation."""
 
@@ -324,9 +323,7 @@ class IntegrationBlueprintApiClient:
         self._cooldown_seconds = cooldown_seconds
         self._request_timeout = request_timeout or 30
 
-    def set_status_callback(
-        self, callback: Callable[[str], None] | None
-    ) -> None:
+    def set_status_callback(self, callback: Callable[[str], None] | None) -> None:
         """Set or clear the live status update callback."""
         self._status_callback = callback
 
@@ -569,7 +566,9 @@ class IntegrationBlueprintApiClient:
                     sel = raw_sel.strip()
                     if sel:
                         # Strip pseudo-classes/elements
-                        clean_sel = re.sub(r":{1,2}[a-z-]+(?:\([^)]*\))?", "", sel).strip()
+                        clean_sel = re.sub(
+                            r":{1,2}[a-z-]+(?:\([^)]*\))?", "", sel
+                        ).strip()
                         if clean_sel:
                             selectors.append(clean_sel)
 
@@ -618,7 +617,9 @@ class IntegrationBlueprintApiClient:
                 class_attr = 'class="[^"]*\\b' + escaped + '\\b[^"]*"'
             else:
                 class_attr = ""
-            tag_pattern = re.escape(target_tag) if target_tag != "[a-z0-9]+" else target_tag
+            tag_pattern = (
+                re.escape(target_tag) if target_tag != "[a-z0-9]+" else target_tag
+            )
 
             if ancestor_classes:
                 # Find target elements inside ancestor with the right class
@@ -627,9 +628,15 @@ class IntegrationBlueprintApiClient:
                         r'(<[a-z0-9]+[^>]*class="[^"]*\b'
                         + re.escape(anc_cls)
                         + r'\b[^"]*"[^>]*>)(.*?)'
-                        + "(<" + tag_pattern + r"(?:\s+[^>]*" + class_attr + r"[^>]*)?>)"
+                        + "(<"
+                        + tag_pattern
+                        + r"(?:\s+[^>]*"
+                        + class_attr
+                        + r"[^>]*)?>)"
                         + "(.*?)"
-                        + "(</" + tag_pattern + ">)"
+                        + "(</"
+                        + tag_pattern
+                        + ">)"
                     )
                     # Apply repeatedly since nested matches could overlap
                     for _ in range(5):
@@ -654,9 +661,15 @@ class IntegrationBlueprintApiClient:
             else:
                 # Direct selector — match elements anywhere
                 pattern = (
-                    "(<" + tag_pattern + r"(?:\s+[^>]*" + class_attr + r"[^>]*)?>)"
+                    "(<"
+                    + tag_pattern
+                    + r"(?:\s+[^>]*"
+                    + class_attr
+                    + r"[^>]*)?>)"
                     + "(.*?)"
-                    + "(</" + tag_pattern + ">)"
+                    + "(</"
+                    + tag_pattern
+                    + ">)"
                 )
                 for _ in range(5):
                     new_text = re.sub(
@@ -876,7 +889,10 @@ class IntegrationBlueprintApiClient:
                     raise IntegrationBlueprintApiClientCommunicationError(
                         msg
                     ) from exception
-                if attempt == 0 and RETRY_HTTP_5XX_LOWER <= exception.status < RETRY_HTTP_5XX_UPPER:
+                if (
+                    attempt == 0
+                    and RETRY_HTTP_5XX_LOWER <= exception.status < RETRY_HTTP_5XX_UPPER
+                ):
                     await asyncio.sleep(3)
                     continue
                 msg = (
@@ -930,9 +946,7 @@ class IntegrationBlueprintApiClient:
     async def _save_screenshot(self, screenshot: bytes) -> str:
         if not self._screenshot_dir or not self._screenshot_filename:
             msg = "Screenshot storage location is not configured."
-            raise IntegrationBlueprintApiClientError(
-                msg
-            )
+            raise IntegrationBlueprintApiClientError(msg)
 
         screenshot_path = Path(self._screenshot_dir) / self._screenshot_filename
         screenshot_path.parent.mkdir(parents=True, exist_ok=True)

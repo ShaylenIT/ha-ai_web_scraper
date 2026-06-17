@@ -93,14 +93,10 @@ def _build_entry_client(
 
     provider_id = entry.data.get(CONF_PROVIDER_ID, "")
     cooldown_seconds = (
-        int(provider_entry.data.get(CONF_COOL_DOWN_SECONDS, 0))
-        if provider_entry
-        else 0
+        int(provider_entry.data.get(CONF_COOL_DOWN_SECONDS, 0)) if provider_entry else 0
     )
     request_timeout = (
-        int(provider_entry.data.get(CONF_REQUEST_TIMEOUT, 30))
-        if provider_entry
-        else 30
+        int(provider_entry.data.get(CONF_REQUEST_TIMEOUT, 30)) if provider_entry else 30
     )
 
     return IntegrationBlueprintApiClient(
@@ -176,18 +172,14 @@ async def async_setup_entry(
     )
 
     # Wire live status updates: client → coordinator → entity listeners
-    entry.runtime_data.client.set_status_callback(
-        coordinator._set_status_callback
-    )
+    entry.runtime_data.client.set_status_callback(coordinator._set_status_callback)
 
     await coordinator.async_load_from_storage()
 
     # Create entities BEFORE the first refresh so they're alive to receive
     # live phase updates (queued → rendering_page → ... → completed) and
     # serve the screenshot immediately after it's captured.
-    entry.async_on_unload(
-        entry.add_update_listener(async_on_scraper_config_update)
-    )
+    entry.async_on_unload(entry.add_update_listener(async_on_scraper_config_update))
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 

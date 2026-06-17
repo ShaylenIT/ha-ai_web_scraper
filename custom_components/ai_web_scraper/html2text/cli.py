@@ -167,7 +167,7 @@ def main() -> None:
         action="store_true",
         dest="hide_strikethrough",
         default=False,
-        help="hide strike-through text. only relevant when -g is " "specified as well",
+        help="hide strike-through text. only relevant when -g is specified as well",
     )
     p.add_argument(
         "--escape-all",
@@ -191,7 +191,7 @@ def main() -> None:
         action="store_true",
         dest="ignore_tables",
         default=config.IGNORE_TABLES,
-        help="Ignore table-related tags (table, th, td, tr) " "while keeping rows.",
+        help="Ignore table-related tags (table, th, td, tr) while keeping rows.",
     )
     p.add_argument(
         "--single-line-break",
