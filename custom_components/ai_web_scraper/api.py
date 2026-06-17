@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import html
 import inspect
 import os
 import re
@@ -17,6 +16,8 @@ from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 import aiohttp
 import aiofiles
 import async_timeout
+
+from . import html2text
 
 from .const import (
     LOGGER,
@@ -289,7 +290,10 @@ class IntegrationBlueprintApiClient:
         request_timeout: int = 30,
         screenshot_dir: str | None = None,
         screenshot_filename: str | None = None,
+        markdown_dir: str | None = None,
+        markdown_filename: str | None = None,
         block_consent_modals: bool = True,
+        save_markdown_debug: bool = False,
         status_callback: Callable[[str], None] | None = None,
         provider_id: str = "",
         cooldown_seconds: int = 0,
@@ -310,6 +314,9 @@ class IntegrationBlueprintApiClient:
         self._scraper_status = "idle"
         self._screenshot_dir = screenshot_dir
         self._screenshot_filename = screenshot_filename
+        self._markdown_dir = markdown_dir
+        self._markdown_filename = markdown_filename
+        self._save_markdown_debug = save_markdown_debug
         self._block_consent_modals = block_consent_modals
         self._status_callback = status_callback
         self._provider_id = provider_id
@@ -392,6 +399,11 @@ class IntegrationBlueprintApiClient:
         screenshot_path = None
         if screenshot is not None and self._screenshot_dir:
             screenshot_path = await self._save_screenshot(screenshot)
+
+        # Save debug Markdown alongside screenshots for inspection.
+        # Only active when save_markdown_debug=True — no config flow toggle.
+        if self._save_markdown_debug and self._markdown_dir and self._markdown_filename:
+            await self._save_debug_markdown(page_text)
 
         self._set_scraper_status("requesting_ai")
         state = await self._provider_extract(page_text)
@@ -492,6 +504,24 @@ class IntegrationBlueprintApiClient:
         "})();"
     )
 
+    # JS injected to mark strikethrough text with ~~syntax~~.
+    # Uses window.getComputedStyle() after full page render so Browserless
+    # computes all CSS (both inline and stylesheet rules). This catches
+    # strikethroughs from CSS classes like .product-price span
+    # { text-decoration: line-through; } that regex-only approaches miss.
+    # The ~~ markers pass through html2text naturally.
+    _STRIKETHROUGH_SCRIPT = (
+        "(function(){"
+        "var els=document.querySelectorAll('del,s,strike,span,ins,u,p,a,li,td,th,div,strong,em');"
+        "els.forEach(function(el){"
+        "var s=window.getComputedStyle(el);"
+        "if(s.textDecoration.includes('line-through')||s.textDecorationLine==='line-through'){"
+        "el.textContent='~~'+el.textContent+'~~';"
+        "}"
+        "});"
+        "})();"
+    )
+
     async def _fetch_browserless_page_text(self, url: str) -> str:
         """
         Fetch rendered page content via browserless.
@@ -524,9 +554,20 @@ class IntegrationBlueprintApiClient:
         }
 
         if self._block_consent_modals:
-            payload["addScriptTag"] = [{"content": self._OVERLAY_BLOCK_SCRIPT}]
+            payload["addScriptTag"] = [
+                {"content": self._OVERLAY_BLOCK_SCRIPT},
+                {"content": self._STRIKETHROUGH_SCRIPT},
+            ]
             LOGGER.debug(
-                "Overlay blocking enabled for %s — injecting z-index sweep script.",
+                "Overlay blocking enabled for %s — injecting z-index sweep + strikethrough scripts.",
+                url,
+            )
+        else:
+            payload["addScriptTag"] = [
+                {"content": self._STRIKETHROUGH_SCRIPT},
+            ]
+            LOGGER.debug(
+                "Injecting strikethrough marker script for %s.",
                 url,
             )
 
@@ -742,6 +783,21 @@ class IntegrationBlueprintApiClient:
             await f.write(screenshot)
         return str(screenshot_path)
 
+    async def _save_debug_markdown(self, markdown_text: str) -> None:
+        """Save normalized Markdown to disk for debugging.
+
+        Writes the normalized Markdown (before AI extraction) to the
+        configured markdown directory for visual inspection.
+        """
+        if not self._markdown_dir or not self._markdown_filename:
+            return
+
+        md_path = Path(self._markdown_dir) / self._markdown_filename
+        md_path.parent.mkdir(parents=True, exist_ok=True)
+        async with aiofiles.open(md_path, "w", encoding="utf-8") as f:
+            await f.write(markdown_text)
+        LOGGER.debug("Saved debug Markdown to %s", md_path)
+
     def _get_provider(self) -> Provider:
         if self._provider_type == PROVIDER_TYPE_GEMINI:
             return GeminiProvider(
@@ -772,15 +828,37 @@ class IntegrationBlueprintApiClient:
         return Provider._looks_like_html(text)
 
     def _normalize_page_text(self, page_text: str) -> str:
-        """Normalize page text before sending it to the AI provider."""
+        """Normalize page text before sending it to the AI provider.
+
+        Converts HTML to Markdown to preserve structural information
+        (headings, links, lists, bold, italic, tables) that helps AI
+        models better understand the page layout.
+
+        When Browserless is configured, ~~strikethrough~~ Markdown markers
+        are injected into elements with CSS-computed line-through styling
+        (via `_STRIKETHROUGH_SCRIPT`) so the output preserves which text
+        was struck through — something regex-only approaches miss because
+        they don't interpret CSS.
+        """
         if not isinstance(page_text, str):
             return ""
 
-        text = re.sub(r"(?is)<script.*?>.*?</script>", " ", page_text)
-        text = re.sub(r"(?is)<style.*?>.*?</style>", " ", text)
-        text = re.sub(r"<[^>]+>", " ", text)
-        text = html.unescape(text)
-        return " ".join(text.split())
+        # Clean up empty ~~ markers left by injected Browserless script
+        page_text = page_text.replace("~~~~", "")
+
+        # Convert HTML to Markdown for richer structural output
+        converter = html2text.HTML2Text()
+        converter.body_width = 0  # Don't wrap lines
+        converter.ignore_links = False
+        converter.ignore_images = True
+        converter.ignore_emphasis = False
+        converter.ignore_tables = False
+        converter.protect_links = True
+        converter.unicode_snob = True
+        converter.skip_internal_links = True
+        text = converter.handle(page_text)
+
+        return text.strip()
 
     def _normalize_browserless_url(self, browserless_url: str) -> str:
         """Normalize the browserless addon URL for fetching rendered content."""

@@ -7,6 +7,8 @@ LOGGER: Logger = getLogger(__package__)
 DOMAIN = "ai_web_scraper"
 ATTRIBUTION = "Data provided by AI Web Scraper"
 
+SAVE_MARKDOWN_DEBUG = True
+
 CONF_ENTRY_TYPE = "entry_type"
 CONF_PROVIDER_ID = "provider_id"
 CONF_PROVIDER_NAME = "provider_name"

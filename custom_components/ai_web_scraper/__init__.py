@@ -39,6 +39,7 @@ from .const import (
     ENTRY_TYPE_PROVIDER,
     ENTRY_TYPE_SCRAPER,
     LOGGER,
+    SAVE_MARKDOWN_DEBUG,
     OPENAI_COMPATIBLE_TYPES,
     PROVIDER_BASE_URLS,
     PROVIDER_TYPE_OPENAI,
@@ -83,6 +84,9 @@ def _build_entry_client(
     screenshot_dir = hass.config.path(DOMAIN, "screenshots")
     Path(screenshot_dir).mkdir(parents=True, exist_ok=True)
 
+    markdown_dir = hass.config.path(DOMAIN, "markdown")
+    Path(markdown_dir).mkdir(parents=True, exist_ok=True)
+
     block_consent_modals = entry.options.get(
         CONF_BLOCK_CONSENT_MODALS,
         entry.data.get(CONF_BLOCK_CONSENT_MODALS, True),
@@ -114,6 +118,9 @@ def _build_entry_client(
         session=async_get_clientsession(hass),
         screenshot_dir=screenshot_dir,
         screenshot_filename=f"{entry.entry_id}.png",
+        markdown_dir=markdown_dir,
+        markdown_filename=f"{entry.entry_id}.md",
+        save_markdown_debug=SAVE_MARKDOWN_DEBUG,
         block_consent_modals=block_consent_modals,
         provider_id=provider_id,
         cooldown_seconds=cooldown_seconds,
