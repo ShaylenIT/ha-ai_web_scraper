@@ -21,7 +21,6 @@ from custom_components.ai_web_scraper.const import (
     PROVIDER_TYPE_OPENAI,
     PROVIDER_TYPE_OPENAI_COMPATIBLE,
     PROVIDER_TYPE_OPENROUTER,
-    PROVIDER_TYPE_OPENWEBUI,
 )
 
 
