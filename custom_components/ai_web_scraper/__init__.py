@@ -254,6 +254,12 @@ async def async_on_scraper_config_update(
     # Rebuild the client with the updated config/options
     runtime_data.client = _build_entry_client(hass, entry)
 
+    # Re-wire live status updates on the rebuilt client so phase
+    # changes during manual refresh propagate to coordinator entities.
+    runtime_data.client.set_status_callback(
+        runtime_data.coordinator._set_status_callback
+    )
+
     # If the interval changed, the number entity already set it on the
     # coordinator. If it hasn't (e.g. options flow change), sync it here.
     interval_seconds = entry.data.get(CONF_INTERVAL_SECONDS, 0)
