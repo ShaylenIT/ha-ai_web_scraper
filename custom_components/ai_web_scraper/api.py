@@ -375,7 +375,7 @@ class IntegrationBlueprintApiClient:
                     await asyncio.sleep(remaining)
             _last_provider_api_call[self._provider_id] = datetime.now(tz=UTC)
 
-        if self._browserless_url:
+        if self._browserless_url and self._extraction_mode == "browser_based":
             self._set_scraper_status("rendering_page")
         else:
             self._set_scraper_status("fetching_page")
@@ -384,7 +384,7 @@ class IntegrationBlueprintApiClient:
         page_text = self._normalize_page_text(page_text)
         self._set_scraper_status("waiting_for_ai")
         screenshot = None
-        if self._browserless_url:
+        if self._browserless_url and self._extraction_mode == "browser_based":
             try:
                 screenshot = await self._fetch_browserless_page_screenshot(self._url)
             except IntegrationBlueprintApiClientCommunicationError as exception:
@@ -439,8 +439,14 @@ class IntegrationBlueprintApiClient:
         }
 
     async def _get_page_text(self, url: str) -> str:
-        """Fetch page text from the target URL or browserless endpoint."""
-        if self._browserless_url:
+        """Fetch page text from the target URL or browserless endpoint.
+
+        Uses Browserless only when both a browserless_url is configured
+        AND the extraction mode is set to "browser_based". If the scraper
+        uses "dom" mode, the URL is fetched directly regardless of any
+        Browserless config on the provider.
+        """
+        if self._browserless_url and self._extraction_mode == "browser_based":
             return await self._fetch_browserless_page_text(url)
         return await self._fetch_page_text(url)
 
