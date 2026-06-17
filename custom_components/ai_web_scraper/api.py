@@ -615,9 +615,9 @@ class IntegrationBlueprintApiClient:
                 # Find target elements inside ancestor with the right class
                 for anc_cls in ancestor_classes:
                     anc_pattern = (
-                        r'<[a-z0-9]+[^>]*class="[^"]*\b'
+                        r'(<[a-z0-9]+[^>]*class="[^"]*\b'
                         + re.escape(anc_cls)
-                        + r'\b[^"]*"[^>]*>.*?'
+                        + r'\b[^"]*"[^>]*>)(.*?)'
                         + f"(<{tag_pattern}(?:\s+[^>]*{class_attr}[^>]*)?>)"
                         + "(.*?)"
                         + f"(</{tag_pattern}>)"
@@ -627,11 +627,13 @@ class IntegrationBlueprintApiClient:
                         new_text = re.sub(
                             anc_pattern,
                             lambda m: (
-                                m.group(1)
-                                + ("~~" if "~~" not in m.group(2) else "")
-                                + m.group(2)
-                                + ("~~" if "~~" not in m.group(2) else "")
-                                + m.group(3)
+                                m.group(1)  # ancestor opening tag
+                                + m.group(2)  # text between ancestor and target
+                                + m.group(3)  # target opening tag
+                                + ("~~" if "~~" not in m.group(4) else "")
+                                + m.group(4)  # content inside target
+                                + ("~~" if "~~" not in m.group(4) else "")
+                                + m.group(5)  # target closing tag
                             ),
                             html_text,
                             count=0,
