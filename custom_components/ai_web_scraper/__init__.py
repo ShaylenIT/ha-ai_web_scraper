@@ -197,6 +197,10 @@ async def async_setup_entry(
     refresh_task = hass.async_create_task(_initial_refresh())
     entry.async_on_unload(refresh_task.cancel)
 
+    # Mark the entry as set up so HA can dismiss its startup notification
+    # without waiting for the first scrape to complete.
+    hass.config_entries.async_setup_done(entry)
+
     return True
 
 
