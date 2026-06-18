@@ -215,7 +215,17 @@ class AIWebScraperConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     CONF_PROVIDER_ID,
                     default=(user_input or {}).get(CONF_PROVIDER_ID, vol.UNDEFINED),
                 )
-            ] = vol.In(provider_options)
+            ] = selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=[
+                        selector.SelectOptionDict(
+                            value=entry_id, label=label
+                        )
+                        for entry_id, label in provider_options.items()
+                    ],
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
+            )
 
         return vol.Schema(schema_dict)
 
@@ -583,7 +593,17 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
                         CONF_PROVIDER_ID, vol.UNDEFINED
                     ),
                 )
-            ] = vol.In(provider_options)
+            ] = selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=[
+                        selector.SelectOptionDict(
+                            value=entry_id, label=label
+                        )
+                        for entry_id, label in provider_options.items()
+                    ],
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
+            )
 
         schema = vol.Schema(schema_dict)
 
