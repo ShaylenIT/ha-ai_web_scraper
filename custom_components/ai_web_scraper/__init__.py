@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from homeassistant.const import EVENT_HOMEASSISTANT_START, Platform
-from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.loader import async_get_loaded_integration
 
@@ -185,9 +184,14 @@ async def async_setup_entry(
     # notification dismisses immediately (scrapes don't block startup).
     # When EVENT_HOMEASSISTANT_START fires, all scrapers trigger their
     # first refresh and queue behind the concurrency semaphore.
-    @callback
-    def _on_hass_start(_event):
-        hass.async_create_task(coordinator.async_config_entry_first_refresh())
+    async def _on_hass_start(_event):
+        try:
+            await coordinator.async_config_entry_first_refresh()
+        except Exception:  # pylint: disable=broad-except
+            LOGGER.exception(
+                "First scrape failed for %s after HA start",
+                entry.title,
+            )
 
     entry.async_on_unload(
         hass.bus.async_listen_once(EVENT_HOMEASSISTANT_START, _on_hass_start)
