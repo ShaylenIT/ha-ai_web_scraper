@@ -7,11 +7,12 @@ https://github.com/ludeeus/ai_web_scraper
 
 from __future__ import annotations
 
+import asyncio
 from datetime import timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from homeassistant.const import EVENT_HOMEASSISTANT_START, Platform
+from homeassistant.const import Platform
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.loader import async_get_loaded_integration
 
@@ -180,22 +181,15 @@ async def async_setup_entry(
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    # Delay the first scrape until HA has fully started so the startup
-    # notification dismisses immediately (scrapes don't block startup).
-    # When EVENT_HOMEASSISTANT_START fires, all scrapers trigger their
-    # first refresh and queue behind the concurrency semaphore.
-    async def _on_hass_start(_event):
-        try:
-            await coordinator.async_config_entry_first_refresh()
-        except Exception:  # pylint: disable=broad-except
-            LOGGER.exception(
-                "First scrape failed for %s after HA start",
-                entry.title,
-            )
+    # Fire the first refresh as a background task so async_setup_entry
+    # returns immediately. A 60-second delay gives HA time to finish
+    # its startup phase and dismiss notifications before scrapers begin.
+    async def _initial_refresh() -> None:
+        await asyncio.sleep(60)
+        await coordinator.async_config_entry_first_refresh()
 
-    entry.async_on_unload(
-        hass.bus.async_listen_once(EVENT_HOMEASSISTANT_START, _on_hass_start)
-    )
+    refresh_task = hass.async_create_task(_initial_refresh())
+    entry.async_on_unload(refresh_task.cancel)
 
     return True
 
