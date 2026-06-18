@@ -14,7 +14,7 @@ block the underlying page content. These include:
 - Notification permission dialogs
 - Ad overlays and interstitials
 
-> **Why not `blockConsentModals`?**  
+> **Why not `blockConsentModals`?**
 > `blockConsentModals` is a Browserless **Cloud/Enterprise-only** feature. Self-hosted
 > community instances (including the Home Assistant add-on) return `400 Bad Request`
 > when the parameter is included anywhere in the request — whether in the JSON body
@@ -108,7 +108,7 @@ if (
 }
 ```
 
-**Pros:** Very low false-positive risk — only triggers when scroll is explicitly locked.  
+**Pros:** Very low false-positive risk — only triggers when scroll is explicitly locked.
 **Cons:** Only activates if the site uses the scroll-lock pattern; misses overlays
 that do not lock scroll.
 
@@ -127,7 +127,7 @@ document.querySelectorAll(
 ).forEach(function (el) { el.remove(); });
 ```
 
-**Pros:** Zero false positives — only removes elements explicitly marked as dialogs.  
+**Pros:** Zero false positives — only removes elements explicitly marked as dialogs.
 **Cons:** Not all popups use ARIA roles correctly; many cookie banners and newsletter
 modals omit semantic markup entirely.
 
@@ -160,7 +160,7 @@ new MutationObserver(function (mutations) {
 }).observe(document.body, { childList: true, subtree: true });
 ```
 
-**Pros:** Catches delayed popups and SPA-injected modals that appear after load.  
+**Pros:** Catches delayed popups and SPA-injected modals that appear after load.
 **Cons:** Observer must be injected early enough to catch all mutations; adds overhead
 for the duration of the page session.
 

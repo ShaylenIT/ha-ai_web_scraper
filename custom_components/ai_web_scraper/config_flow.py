@@ -218,9 +218,7 @@ class AIWebScraperConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             ] = selector.SelectSelector(
                 selector.SelectSelectorConfig(
                     options=[
-                        selector.SelectOptionDict(
-                            value=entry_id, label=label
-                        )
+                        selector.SelectOptionDict(value=entry_id, label=label)
                         for entry_id, label in provider_options.items()
                     ],
                     mode=selector.SelectSelectorMode.DROPDOWN,
@@ -596,9 +594,7 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
             ] = selector.SelectSelector(
                 selector.SelectSelectorConfig(
                     options=[
-                        selector.SelectOptionDict(
-                            value=entry_id, label=label
-                        )
+                        selector.SelectOptionDict(value=entry_id, label=label)
                         for entry_id, label in provider_options.items()
                     ],
                     mode=selector.SelectSelectorMode.DROPDOWN,
