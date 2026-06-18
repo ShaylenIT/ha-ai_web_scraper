@@ -7,12 +7,12 @@ https://github.com/ludeeus/ai_web_scraper
 
 from __future__ import annotations
 
-import asyncio
 from datetime import timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from homeassistant.const import Platform
+from homeassistant.const import EVENT_HOMEASSISTANT_START, Platform
+from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.loader import async_get_loaded_integration
 
@@ -181,25 +181,17 @@ async def async_setup_entry(
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    # Fire the first refresh as a background task so async_setup_entry
-    # returns immediately — the integration won't show "Initialising"
-    # while waiting in the semaphore queue behind other scrapers.
-    # Entities are already live with stored data from async_load_from_storage().
-    #
-    # async_setup_done is called first from inside the task so HA's startup
-    # notification can dismiss without waiting for the first scrape.
-    async def _initial_refresh() -> None:
-        hass.config_entries.async_setup_done(entry)
-        await coordinator.async_config_entry_first_refresh()
-        # Stagger scraper startups so each one doesn't slam Browserless
-        # immediately. The global semaphore in api.py already serialises
-        # concurrent scrape operations — this extra delay spreads out the
-        # initial load across several seconds to further help Browserless
-        # keep up.
-        await asyncio.sleep(3)
+    # Delay the first scrape until HA has fully started so the startup
+    # notification dismisses immediately (scrapes don't block startup).
+    # When EVENT_HOMEASSISTANT_START fires, all scrapers trigger their
+    # first refresh and queue behind the concurrency semaphore.
+    @callback
+    def _on_hass_start(_event):
+        hass.async_create_task(coordinator.async_config_entry_first_refresh())
 
-    refresh_task = hass.async_create_task(_initial_refresh())
-    entry.async_on_unload(refresh_task.cancel)
+    entry.async_on_unload(
+        hass.bus.async_listen_once(EVENT_HOMEASSISTANT_START, _on_hass_start)
+    )
 
     return True
 
