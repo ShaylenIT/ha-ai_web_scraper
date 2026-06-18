@@ -54,6 +54,21 @@ class AIWebScraperDataUpdateCoordinator(DataUpdateCoordinator):
         """Return the live scraper status phase."""
         return self._current_status
 
+    def _reschedule_refresh_timer(self) -> None:
+        """Cancel the pending auto-refresh timer and schedule a new one.
+
+        Called after the user changes the scrape interval so the new
+        interval takes effect immediately instead of waiting for the
+        old timer to fire first.
+        """
+        if self._unsub_refresh is not None:
+            self._unsub_refresh.cancel()
+            self._unsub_refresh = None
+        self._unsub_refresh = self.hass.loop.call_later(
+            self.update_interval.total_seconds(),
+            self._async_refresh,
+        )
+
     def _set_status_callback(self, status: str) -> None:
         """Callback invoked by the API client when the scraper phase changes.
 

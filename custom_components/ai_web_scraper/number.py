@@ -98,3 +98,8 @@ class IntegrationBlueprintNumber(IntegrationBlueprintEntity, NumberEntity):
             data=new_data,
         )
         self.async_write_ha_state()
+
+        # Reschedule the auto-refresh timer so the new interval takes
+        # effect immediately instead of waiting for the old timer.
+        if seconds > 0:
+            self.coordinator._reschedule_refresh_timer()
