@@ -181,6 +181,11 @@ async def async_setup_entry(
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
+    # Mark the entry as setup done before the first scrape so HA dismisses
+    # its "Starting" notification immediately, even if the initial refresh
+    # is slow (e.g. waiting in the Browserless queue / semaphore).
+    hass.config_entries.async_setup_done(entry)
+
     # Fire the first refresh as a background task so async_setup_entry
     # returns immediately — the integration won't show "Initialising"
     # while waiting in the semaphore queue behind other scrapers.
