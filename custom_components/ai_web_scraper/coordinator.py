@@ -11,8 +11,8 @@ from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .api import (
-    IntegrationBlueprintApiClientAuthenticationError,
-    IntegrationBlueprintApiClientError,
+    AiWebScraperClientAuthenticationError,
+    AiWebScraperClientError,
 )
 from .const import (
     CONF_EXTRACTION_MODE,
@@ -22,12 +22,14 @@ from .const import (
     CONF_URL,
     DOMAIN,
     LOGGER,
+    SCRAPER_STATUS_ATTR,
+    ScraperPhase,
 )
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
 
-    from .data import IntegrationBlueprintConfigEntry
+    from .data import AiWebScraperConfigEntry
 
 STORAGE_VERSION = 1
 
@@ -36,18 +38,18 @@ STORAGE_VERSION = 1
 class AIWebScraperDataUpdateCoordinator(DataUpdateCoordinator):
     """Class to manage fetching data from the API."""
 
-    config_entry: IntegrationBlueprintConfigEntry
+    config_entry: AiWebScraperConfigEntry
 
     def __init__(
         self,
         hass: HomeAssistant,
-        config_entry: IntegrationBlueprintConfigEntry | None = None,
+        config_entry: AiWebScraperConfigEntry | None = None,
         logger: Logger | None = None,  # noqa: ARG002 Unused — passed through to parent
         **kwargs: Any,
     ) -> None:
         """Initialize the coordinator."""
         super().__init__(hass, LOGGER, config_entry=config_entry, **kwargs)
-        self._current_status: str = "idle"
+        self._current_status: str = ScraperPhase.IDLE
 
     @property
     def current_status(self) -> str:
@@ -80,7 +82,7 @@ class AIWebScraperDataUpdateCoordinator(DataUpdateCoordinator):
             if self.data:
                 old_data = dict(self.data)
                 attrs = dict(old_data.get("attributes", {}))
-                attrs["scraper_status"] = status
+                attrs[SCRAPER_STATUS_ATTR] = status
                 old_data["attributes"] = attrs
                 self.async_set_updated_data(old_data)
 
@@ -108,9 +110,9 @@ class AIWebScraperDataUpdateCoordinator(DataUpdateCoordinator):
         """
         if stored := await self._storage().async_load():
             attrs = dict(stored.get("attributes", {}))
-            attrs["scraper_status"] = "idle"
+            attrs[SCRAPER_STATUS_ATTR] = ScraperPhase.IDLE
             stored["attributes"] = attrs
-            self._current_status = "idle"
+            self._current_status = ScraperPhase.IDLE
             self.async_set_updated_data(stored)
 
     async def _async_save_to_storage(self, data: dict[str, Any]) -> None:
@@ -137,9 +139,9 @@ class AIWebScraperDataUpdateCoordinator(DataUpdateCoordinator):
             new_data["previous_state"] = previous_state
             await self._async_save_to_storage(new_data)
             return new_data
-        except IntegrationBlueprintApiClientAuthenticationError as exception:
+        except AiWebScraperClientAuthenticationError as exception:
             raise ConfigEntryAuthFailed(exception) from exception
-        except IntegrationBlueprintApiClientError as exception:
+        except AiWebScraperClientError as exception:
             self.logger.exception(
                 "Scraper data fetch failed for %s",
                 self.config_entry.title,
@@ -162,7 +164,7 @@ class AIWebScraperDataUpdateCoordinator(DataUpdateCoordinator):
                         else None
                     ),
                     "last_scrape": datetime.now(timezone.utc).isoformat(),
-                    "scraper_status": f"failed - {error_message}",
+                    SCRAPER_STATUS_ATTR: f"failed - {error_message}",
                 },
                 "error_message": error_message,
                 "last_attempt_status": "failure",

@@ -11,12 +11,12 @@ if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
     from homeassistant.loader import Integration
 
-    from .api import IntegrationBlueprintApiClient
+    from .api import AiWebScraperClient
     from .coordinator import AIWebScraperDataUpdateCoordinator
 
 from .const import CONF_ENTRY_TYPE, ENTRY_TYPE_PROVIDER, ENTRY_TYPE_SCRAPER
 
-IntegrationBlueprintConfigEntry = ConfigEntry
+AiWebScraperConfigEntry = ConfigEntry
 
 
 def get_provider_entries(hass: HomeAssistant) -> list[ConfigEntry]:
@@ -63,9 +63,9 @@ def provider_options(hass: HomeAssistant) -> dict[str, str]:
 
 
 @dataclass
-class IntegrationBlueprintData:
+class AiWebScraperData:
     """Data for the ai_web_scraper integration."""
 
-    client: IntegrationBlueprintApiClient
+    client: AiWebScraperClient
     coordinator: AIWebScraperDataUpdateCoordinator
     integration: Integration

@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from homeassistant.helpers.entity import EntityDescription
 
 
-class IntegrationBlueprintEntity(CoordinatorEntity[AIWebScraperDataUpdateCoordinator]):
+class AiWebScraperEntity(CoordinatorEntity[AIWebScraperDataUpdateCoordinator]):
     """Base entity for ai_web_scraper."""
 
     _attr_attribution = ATTRIBUTION

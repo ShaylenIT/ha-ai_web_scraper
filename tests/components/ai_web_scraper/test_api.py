@@ -6,9 +6,9 @@ from unittest.mock import AsyncMock
 import aiohttp
 
 from custom_components.ai_web_scraper.api import (
-    IntegrationBlueprintApiClient,
-    IntegrationBlueprintApiClientCommunicationError,
-    IntegrationBlueprintApiClientError,
+    AiWebScraperClient,
+    AiWebScraperClientCommunicationError,
+    AiWebScraperClientError,
     OpenAICompatibleProvider,
 )
 from custom_components.ai_web_scraper.const import (
@@ -29,7 +29,7 @@ class DummySession:
 
 
 def test_gemini_provider_extract_uses_gemini_generate_endpoint() -> None:
-    client = IntegrationBlueprintApiClient(
+    client = AiWebScraperClient(
         provider_name="Test Provider",
         api_key="test-key",
         model_name="gemini-1.0",
@@ -60,7 +60,7 @@ def test_gemini_provider_extract_uses_gemini_generate_endpoint() -> None:
 
 
 def test_provider_factory_selects_openai_compatible_by_default() -> None:
-    client = IntegrationBlueprintApiClient(
+    client = AiWebScraperClient(
         provider_name="Test Provider",
         api_key="test-key",
         model_name="gpt-4",
@@ -81,7 +81,7 @@ def test_provider_factory_selects_openai_compatible_by_default() -> None:
 def test_provider_factory_returns_openai_compatible_for_all_types() -> None:
     """Every OpenAI-compatible provider type returns OpenAICompatibleProvider."""
     for provider_type in OPENAI_COMPATIBLE_TYPES:
-        client = IntegrationBlueprintApiClient(
+        client = AiWebScraperClient(
             provider_name="Test Provider",
             api_key="test-key",
             model_name="test-model",
@@ -110,7 +110,7 @@ def test_provider_factory_uses_correct_default_base_url() -> None:
         (PROVIDER_TYPE_OPENROUTER, "https://openrouter.ai/api/v1/chat/completions"),
     ]
     for provider_type, expected_url in test_cases:
-        client = IntegrationBlueprintApiClient(
+        client = AiWebScraperClient(
             provider_name="Test",
             api_key="key",
             model_name="model",
@@ -134,7 +134,7 @@ def test_provider_factory_uses_correct_default_base_url() -> None:
 def test_provider_factory_uses_custom_base_url() -> None:
     """Custom base URL overrides the default."""
     custom_url = "https://my-custom-proxy.example.com/v1"
-    client = IntegrationBlueprintApiClient(
+    client = AiWebScraperClient(
         provider_name="Test",
         api_key="key",
         model_name="model",
@@ -153,7 +153,7 @@ def test_provider_factory_uses_custom_base_url() -> None:
 
 
 def test_gemini_provider_extract_raises_for_empty_candidate() -> None:
-    client = IntegrationBlueprintApiClient(
+    client = AiWebScraperClient(
         provider_name="Test Provider",
         api_key="test-key",
         model_name="gemini-1.0",
@@ -170,8 +170,8 @@ def test_gemini_provider_extract_raises_for_empty_candidate() -> None:
 
     try:
         asyncio.run(client.async_get_data())
-        assert False, "Expected IntegrationBlueprintApiClientError"
-    except IntegrationBlueprintApiClientError:
+        assert False, "Expected AiWebScraperClientError"
+    except AiWebScraperClientError:
         pass
 
 
@@ -219,7 +219,7 @@ def test_api_wrapper_rate_limit_error_message() -> None:
 
     session = FakeSession()
 
-    client = IntegrationBlueprintApiClient(
+    client = AiWebScraperClient(
         provider_name="Test Provider",
         api_key="test-key",
         model_name="gpt-4",
@@ -240,8 +240,8 @@ def test_api_wrapper_rate_limit_error_message() -> None:
                 headers={},
             )
         )
-        assert False, "Expected IntegrationBlueprintApiClientCommunicationError"
-    except IntegrationBlueprintApiClientCommunicationError as exception:
+        assert False, "Expected AiWebScraperClientCommunicationError"
+    except AiWebScraperClientCommunicationError as exception:
         assert "Provider rate limit exceeded" in str(exception)
 
 
@@ -286,7 +286,7 @@ def test_api_wrapper_retries_server_errors_once() -> None:
 
     session = FakeSession()
 
-    client = IntegrationBlueprintApiClient(
+    client = AiWebScraperClient(
         provider_name="Test Provider",
         api_key="test-key",
         model_name="gpt-4",
@@ -306,7 +306,7 @@ def test_api_wrapper_retries_server_errors_once() -> None:
 
 
 def test_normalize_page_text_removes_html_tags() -> None:
-    client = IntegrationBlueprintApiClient(
+    client = AiWebScraperClient(
         provider_name="Test Provider",
         api_key="test-key",
         model_name="gpt-4",
@@ -326,7 +326,7 @@ def test_normalize_page_text_removes_html_tags() -> None:
 
 
 def test_browserless_screenshot_is_saved_to_disk(tmp_path) -> None:
-    client = IntegrationBlueprintApiClient(
+    client = AiWebScraperClient(
         provider_name="Test Provider",
         api_key="test-key",
         model_name="gpt-4",
@@ -382,7 +382,7 @@ def test_browserless_screenshot_falls_back_on_400_bad_request() -> None:
         success_response,
     ]
 
-    client = IntegrationBlueprintApiClient(
+    client = AiWebScraperClient(
         provider_name="Test Provider",
         api_key="test-key",
         model_name="gpt-4",
@@ -420,7 +420,7 @@ def test_browserless_screenshot_uses_standard_payload_first() -> None:
     session = AsyncMock()
     session.post.return_value = success_response
 
-    client = IntegrationBlueprintApiClient(
+    client = AiWebScraperClient(
         provider_name="Test Provider",
         api_key="test-key",
         model_name="gpt-4",

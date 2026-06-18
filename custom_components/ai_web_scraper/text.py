@@ -7,14 +7,14 @@ from typing import TYPE_CHECKING
 from homeassistant.components.text import TextEntity, TextEntityDescription
 
 from .const import CONF_NOTES
-from .entity import IntegrationBlueprintEntity
+from .entity import AiWebScraperEntity
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
     from .coordinator import AIWebScraperDataUpdateCoordinator
-    from .data import IntegrationBlueprintConfigEntry
+    from .data import AiWebScraperConfigEntry
 
 ENTITY_DESCRIPTIONS = (
     TextEntityDescription(
@@ -28,12 +28,12 @@ ENTITY_DESCRIPTIONS = (
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: IntegrationBlueprintConfigEntry,
+    entry: AiWebScraperConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the text platform."""
     async_add_entities(
-        IntegrationBlueprintText(
+        AiWebScraperText(
             coordinator=entry.runtime_data.coordinator,
             entity_description=entity_description,
         )
@@ -41,7 +41,7 @@ async def async_setup_entry(
     )
 
 
-class IntegrationBlueprintText(IntegrationBlueprintEntity, TextEntity):
+class AiWebScraperText(AiWebScraperEntity, TextEntity):
     """ai_web_scraper Text (Notes) entity."""
 
     def __init__(

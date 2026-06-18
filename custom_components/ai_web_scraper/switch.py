@@ -7,14 +7,14 @@ from typing import TYPE_CHECKING, Any
 from homeassistant.components.switch import SwitchEntity, SwitchEntityDescription
 
 from .const import CONF_BLOCK_CONSENT_MODALS
-from .entity import IntegrationBlueprintEntity
+from .entity import AiWebScraperEntity
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
     from .coordinator import AIWebScraperDataUpdateCoordinator
-    from .data import IntegrationBlueprintConfigEntry
+    from .data import AiWebScraperConfigEntry
 
 ENTITY_DESCRIPTIONS = (
     SwitchEntityDescription(
@@ -27,12 +27,12 @@ ENTITY_DESCRIPTIONS = (
 
 async def async_setup_entry(
     hass: HomeAssistant,  # noqa: ARG001 Unused function argument: `hass`
-    entry: IntegrationBlueprintConfigEntry,
+    entry: AiWebScraperConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the switch platform."""
     async_add_entities(
-        IntegrationBlueprintSwitch(
+        AiWebScraperSwitch(
             coordinator=entry.runtime_data.coordinator,
             entity_description=entity_description,
         )
@@ -40,7 +40,7 @@ async def async_setup_entry(
     )
 
 
-class IntegrationBlueprintSwitch(IntegrationBlueprintEntity, SwitchEntity):
+class AiWebScraperSwitch(AiWebScraperEntity, SwitchEntity):
     """ai_web_scraper switch class."""
 
     def __init__(

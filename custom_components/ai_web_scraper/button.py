@@ -6,14 +6,14 @@ from typing import TYPE_CHECKING
 
 from homeassistant.components.button import ButtonEntity, ButtonEntityDescription
 
-from .entity import IntegrationBlueprintEntity
+from .entity import AiWebScraperEntity
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
     from .coordinator import AIWebScraperDataUpdateCoordinator
-    from .data import IntegrationBlueprintConfigEntry
+    from .data import AiWebScraperConfigEntry
 
 ENTITY_DESCRIPTIONS = (
     ButtonEntityDescription(
@@ -26,12 +26,12 @@ ENTITY_DESCRIPTIONS = (
 
 async def async_setup_entry(
     hass: HomeAssistant,  # noqa: ARG001 Unused function argument: `hass`
-    entry: IntegrationBlueprintConfigEntry,
+    entry: AiWebScraperConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the button platform."""
     async_add_entities(
-        IntegrationBlueprintButton(
+        AiWebScraperButton(
             coordinator=entry.runtime_data.coordinator,
             entity_description=entity_description,
         )
@@ -39,7 +39,7 @@ async def async_setup_entry(
     )
 
 
-class IntegrationBlueprintButton(IntegrationBlueprintEntity, ButtonEntity):
+class AiWebScraperButton(AiWebScraperEntity, ButtonEntity):
     """ai_web_scraper button entity."""
 
     def __init__(

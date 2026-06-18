@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any
 from homeassistant.components.image import ImageEntity
 from homeassistant.helpers.entity import EntityDescription
 
-from .entity import IntegrationBlueprintEntity
+from .entity import AiWebScraperEntity
 from .const import DOMAIN
 
 if TYPE_CHECKING:
@@ -18,26 +18,22 @@ if TYPE_CHECKING:
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
     from .coordinator import AIWebScraperDataUpdateCoordinator
-    from .data import IntegrationBlueprintConfigEntry
+    from .data import AiWebScraperConfigEntry
 
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: IntegrationBlueprintConfigEntry,
+    entry: AiWebScraperConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the image platform."""
     screenshot_path = hass.config.path(DOMAIN, "screenshots", f"{entry.entry_id}.png")
     async_add_entities(
-        [
-            IntegrationBlueprintImage(
-                hass, entry.runtime_data.coordinator, screenshot_path
-            )
-        ]
+        [AiWebScraperImage(hass, entry.runtime_data.coordinator, screenshot_path)]
     )
 
 
-class IntegrationBlueprintImage(IntegrationBlueprintEntity, ImageEntity):
+class AiWebScraperImage(AiWebScraperEntity, ImageEntity):
     """ai_web_scraper Image class."""
 
     def __init__(
@@ -47,7 +43,7 @@ class IntegrationBlueprintImage(IntegrationBlueprintEntity, ImageEntity):
         screenshot_path: str,
     ) -> None:
         """Initialize the image entity."""
-        IntegrationBlueprintEntity.__init__(self, coordinator)
+        AiWebScraperEntity.__init__(self, coordinator)
         ImageEntity.__init__(self, hass)
         self._screenshot_path = Path(screenshot_path)
         self._attr_unique_id = f"{coordinator.config_entry.entry_id}_screenshot"

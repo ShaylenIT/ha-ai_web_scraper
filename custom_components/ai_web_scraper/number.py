@@ -12,14 +12,14 @@ from homeassistant.components.number import (
 )
 
 from .const import CONF_INTERVAL_SECONDS
-from .entity import IntegrationBlueprintEntity
+from .entity import AiWebScraperEntity
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
     from .coordinator import AIWebScraperDataUpdateCoordinator
-    from .data import IntegrationBlueprintConfigEntry
+    from .data import AiWebScraperConfigEntry
 
 ENTITY_DESCRIPTIONS = (
     NumberEntityDescription(
@@ -37,12 +37,12 @@ ENTITY_DESCRIPTIONS = (
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: IntegrationBlueprintConfigEntry,
+    entry: AiWebScraperConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the number platform."""
     async_add_entities(
-        IntegrationBlueprintNumber(
+        AiWebScraperNumber(
             coordinator=entry.runtime_data.coordinator,
             entity_description=entity_description,
         )
@@ -50,7 +50,7 @@ async def async_setup_entry(
     )
 
 
-class IntegrationBlueprintNumber(IntegrationBlueprintEntity, NumberEntity):
+class AiWebScraperNumber(AiWebScraperEntity, NumberEntity):
     """ai_web_scraper Number entity."""
 
     def __init__(

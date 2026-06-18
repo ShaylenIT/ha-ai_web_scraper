@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import inspect
-import re
 import socket
 from datetime import UTC, datetime
 from pathlib import Path
@@ -16,11 +15,13 @@ import aiohttp
 import async_timeout
 
 from . import html2text
+from .strikethrough import strikethrough_from_css
 from .const import (
     LOGGER,
     PROVIDER_BASE_URLS,
-    PROVIDER_TYPE_GEMINI,
-    PROVIDER_TYPE_OPENAI,
+    ProviderType,
+    SCRAPER_STATUS_ATTR,
+    ScraperPhase,
 )
 
 if TYPE_CHECKING:
@@ -145,7 +146,7 @@ class OpenAICompatibleProvider(Provider):
             choices = response.get("choices", [])
             if not choices:
                 msg = "Provider response did not contain any choices."
-                raise IntegrationBlueprintApiClientError(msg)
+                raise AiWebScraperClientError(msg)
 
             choice = choices[0]
             if "message" in choice and isinstance(choice["message"], dict):
@@ -155,19 +156,19 @@ class OpenAICompatibleProvider(Provider):
 
             if not content.strip():
                 msg = "Provider returned an empty completion result."
-                raise IntegrationBlueprintApiClientError(msg)
+                raise AiWebScraperClientError(msg)
             if self._looks_like_html(content):
                 msg = "Provider returned HTML instead of extracted text."
-                raise IntegrationBlueprintApiClientError(msg)
+                raise AiWebScraperClientError(msg)
             return content.strip()
 
         extracted = str(response).strip()
         if self._looks_like_html(extracted):
             msg = "Provider returned HTML instead of extracted text."
-            raise IntegrationBlueprintApiClientError(msg)
+            raise AiWebScraperClientError(msg)
         if not extracted:
             msg = "Provider returned an empty response."
-            raise IntegrationBlueprintApiClientError(msg)
+            raise AiWebScraperClientError(msg)
         return extracted
 
 
@@ -211,7 +212,7 @@ class GeminiProvider(Provider):
             candidates = response.get("candidates", [])
             if not candidates or not isinstance(candidates, list):
                 msg = "Provider response did not contain any choices."
-                raise IntegrationBlueprintApiClientError(msg)
+                raise AiWebScraperClientError(msg)
 
             candidate = candidates[0]
             content = candidate.get("content") if isinstance(candidate, dict) else None
@@ -227,34 +228,34 @@ class GeminiProvider(Provider):
 
             if not content.strip():
                 msg = "Provider returned an empty completion result."
-                raise IntegrationBlueprintApiClientError(msg)
+                raise AiWebScraperClientError(msg)
             if self._looks_like_html(content):
                 msg = "Provider returned HTML instead of extracted text."
-                raise IntegrationBlueprintApiClientError(msg)
+                raise AiWebScraperClientError(msg)
             return content.strip()
 
         extracted = str(response).strip()
         if self._looks_like_html(extracted):
             msg = "Provider returned HTML instead of extracted text."
-            raise IntegrationBlueprintApiClientError(msg)
+            raise AiWebScraperClientError(msg)
         if not extracted:
             msg = "Provider returned an empty response."
-            raise IntegrationBlueprintApiClientError(msg)
+            raise AiWebScraperClientError(msg)
         return extracted
 
 
-class IntegrationBlueprintApiClientError(Exception):
+class AiWebScraperClientError(Exception):
     """Exception to indicate a general API error."""
 
 
-class IntegrationBlueprintApiClientCommunicationError(
-    IntegrationBlueprintApiClientError,
+class AiWebScraperClientCommunicationError(
+    AiWebScraperClientError,
 ):
     """Exception to indicate a communication error."""
 
 
-class IntegrationBlueprintApiClientAuthenticationError(
-    IntegrationBlueprintApiClientError,
+class AiWebScraperClientAuthenticationError(
+    AiWebScraperClientError,
 ):
     """Exception to indicate an authentication error."""
 
@@ -263,14 +264,14 @@ async def _verify_response_or_raise(response: aiohttp.ClientResponse) -> None:
     """Verify that the response is valid."""
     if response.status in (401, 403):
         msg = "Invalid credentials"
-        raise IntegrationBlueprintApiClientAuthenticationError(msg)
+        raise AiWebScraperClientAuthenticationError(msg)
 
     result = response.raise_for_status()
     if inspect.isawaitable(result):
         await result
 
 
-class IntegrationBlueprintApiClient:
+class AiWebScraperClient:
     """AI Web Scraper API Client."""
 
     def __init__(  # noqa: PLR0913
@@ -284,7 +285,7 @@ class IntegrationBlueprintApiClient:
         prompt: str,
         extraction_mode: str,
         session: aiohttp.ClientSession,
-        provider_type: str = PROVIDER_TYPE_OPENAI,
+        provider_type: str = ProviderType.OPENAI,
         base_url: str = "",
         request_timeout: int = 30,
         screenshot_dir: str | None = None,
@@ -311,7 +312,7 @@ class IntegrationBlueprintApiClient:
         self._extraction_mode = extraction_mode
         self._session = session
         self._missing_provider = not bool(self._provider_name and self._api_key)
-        self._scraper_status = "idle"
+        self._scraper_status = ScraperPhase.IDLE
         self._screenshot_dir = screenshot_dir
         self._screenshot_filename = screenshot_filename
         self._markdown_dir = markdown_dir
@@ -343,7 +344,7 @@ class IntegrationBlueprintApiClient:
         """
         # Show queued status immediately so the phase sensor updates
         # even when we're waiting behind other scrapers at the semaphore.
-        self._set_scraper_status("queued")
+        self._set_scraper_status(ScraperPhase.QUEUED)
         async with SCRAPE_CONCURRENCY_SEMAPHORE:
             return await self._do_scrape()
 
@@ -356,7 +357,7 @@ class IntegrationBlueprintApiClient:
                 "Missing provider configuration. "
                 "Please verify the selected Provider profile."
             )
-            raise IntegrationBlueprintApiClientError(msg)
+            raise AiWebScraperClientError(msg)
 
         start = datetime.now(tz=UTC)
 
@@ -369,23 +370,23 @@ class IntegrationBlueprintApiClient:
                 elapsed = (datetime.now(tz=UTC) - last_call).total_seconds()
                 remaining = self._cooldown_seconds - elapsed
                 if remaining > 0:
-                    self._set_scraper_status("cooling_down")
+                    self._set_scraper_status(ScraperPhase.COOLING_DOWN)
                     await asyncio.sleep(remaining)
             _last_provider_api_call[self._provider_id] = datetime.now(tz=UTC)
 
         if self._browserless_url and self._extraction_mode == "browser_based":
-            self._set_scraper_status("rendering_page")
+            self._set_scraper_status(ScraperPhase.RENDERING_PAGE)
         else:
-            self._set_scraper_status("fetching_page")
+            self._set_scraper_status(ScraperPhase.FETCHING_PAGE)
 
         page_text = await self._get_page_text(self._url)
         page_text = self._normalize_page_text(page_text)
-        self._set_scraper_status("waiting_for_ai")
+        self._set_scraper_status(ScraperPhase.WAITING_FOR_AI)
         screenshot = None
         if self._browserless_url and self._extraction_mode == "browser_based":
             try:
                 screenshot = await self._fetch_browserless_page_screenshot(self._url)
-            except IntegrationBlueprintApiClientCommunicationError as exception:
+            except AiWebScraperClientCommunicationError as exception:
                 LOGGER.warning(
                     "Screenshot capture failed for %s: %s",
                     self._url,
@@ -403,7 +404,7 @@ class IntegrationBlueprintApiClient:
         if self._save_markdown_debug and self._markdown_dir and self._markdown_filename:
             await self._save_debug_markdown(page_text)
 
-        self._set_scraper_status("requesting_ai")
+        self._set_scraper_status(ScraperPhase.REQUESTING_AI)
         state = await self._provider_extract(page_text)
         duration = (datetime.now(tz=UTC) - start).total_seconds()
         now = datetime.now(tz=UTC).isoformat()
@@ -416,7 +417,7 @@ class IntegrationBlueprintApiClient:
             "scrape_duration_seconds": duration,
             "last_successful_scrape": now,
             "last_scrape": now,
-            "scraper_status": self._scraper_status,
+            SCRAPER_STATUS_ATTR: self._scraper_status,
         }
 
         if screenshot_path:
@@ -426,8 +427,8 @@ class IntegrationBlueprintApiClient:
             attributes["full_text"] = state
             state = state[: MAX_STATE_CHARS - 3] + "..."
 
-        self._set_scraper_status("completed")
-        attributes["scraper_status"] = self._scraper_status
+        self._set_scraper_status(ScraperPhase.COMPLETED)
+        attributes[SCRAPER_STATUS_ATTR] = self._scraper_status
 
         return {
             "state": state,
@@ -468,25 +469,21 @@ class IntegrationBlueprintApiClient:
                     await asyncio.sleep(1)
                     continue
                 msg = f"Error fetching page content - {exception}"
-                raise IntegrationBlueprintApiClientCommunicationError(
-                    msg
-                ) from exception
+                raise AiWebScraperClientCommunicationError(msg) from exception
             except TimeoutError as exception:
                 msg = f"Timeout error fetching page content - {exception}"
-                raise IntegrationBlueprintApiClientCommunicationError(
-                    msg
-                ) from exception
+                raise AiWebScraperClientCommunicationError(msg) from exception
             except (aiohttp.ClientError, socket.gaierror) as exception:
                 msg = f"Error fetching page content - {exception}"
-                raise IntegrationBlueprintApiClientCommunicationError(
-                    msg
-                ) from exception
+                raise AiWebScraperClientCommunicationError(msg) from exception
+            except asyncio.CancelledError:
+                raise
             except Exception as exception:  # pylint: disable=broad-except
                 msg = f"Something really wrong happened! - {exception}"
-                raise IntegrationBlueprintApiClientError(msg) from exception
+                raise AiWebScraperClientError(msg) from exception
 
         msg = "Unable to fetch page content"
-        raise IntegrationBlueprintApiClientError(msg)
+        raise AiWebScraperClientError(msg)
 
     # JS injected via addScriptTag when overlay blocking is enabled (Option 1).
     # Sweeps all elements after page load and removes any that are position:fixed
@@ -526,170 +523,6 @@ class IntegrationBlueprintApiClient:
         "});"
         "})();"
     )
-
-    @staticmethod
-    def _strikethrough_from_css(html_text: str) -> str:
-        """
-        Inject ~~ markers around elements targeted by CSS line-through rules.
-
-        Extracts CSS rules from <style> blocks that set text-decoration to
-        line-through, then applies the selectors to the HTML body to wrap
-        matching text content in ~~ markers. This catches strikethroughs in
-        DOM mode (no Browserless) that would otherwise be missed because
-        no browser computes the CSS.
-
-        Handles: .class, tag, tag.class, .parent .child descendants, and
-        inline style="text-decoration: line-through".
-        """
-        if not isinstance(html_text, str) or "line-through" not in html_text:
-            return html_text
-
-        # --- Step 1: inline style="text-decoration: line-through" ---
-        html_text = re.sub(
-            r"(?is)(<[a-z][^>]*?style=[\"'])(?:[^\"']*?)text-decoration\s*:\s*line-through[^\"']*?([\"'][^>]*>)(.*?)(</[a-z]+>)",
-            lambda m: m.group(1) + m.group(2) + "~~" + m.group(3) + "~~" + m.group(4),
-            html_text,
-        )
-
-        # --- Step 2: extract CSS rules from <style> blocks ---
-        style_blocks = re.findall(r"(?is)<style[^>]*>(.*?)</style>", html_text)
-
-        selectors = []
-        for block in style_blocks:
-            # Match rules like: selector { ... text-decoration: line-through ... }
-            rules = re.findall(
-                r"(?is)([^@{}]*?)\s*\{[^}]*?text-decoration\s*:\s*line-through[^}]*?\}",
-                block,
-            )
-            for rule in rules:
-                for raw_sel in re.split(r"\s*,\s*", rule.strip()):
-                    sel = raw_sel.strip()
-                    if sel:
-                        # Strip pseudo-classes/elements
-                        clean_sel = re.sub(
-                            r":{1,2}[a-z-]+(?:\([^)]*\))?", "", sel
-                        ).strip()
-                        if clean_sel:
-                            selectors.append(clean_sel)
-
-        if not selectors:
-            return html_text
-
-        # --- Step 3: apply each selector ---
-        for selector in selectors:
-            # Split into parts by space or >  (handles descendant/child combinators)
-            parts = re.split(r"\s*(?:>|\s)\s*", selector)
-            # The rightmost part is the target element
-            target = parts[-1]
-            # Parts to the left are ancestor constraints
-            ancestors = parts[:-1]
-
-            # Parse the target selector into tag name and class constraints
-            target_tag = ""
-            target_class = ""
-            if target.startswith("."):
-                # Pure class selector: .foo
-                target_class = target[1:]
-                target_tag = "[a-z0-9]+"
-            elif "." in target:
-                # Tag + class: span.foo
-                target_tag, target_class = target.split(".", 1)
-            else:
-                # Pure tag: span
-                target_tag = target
-
-            # Build ancestor class constraints
-            ancestor_classes = []
-            for anc in ancestors:
-                if anc.startswith("."):
-                    ancestor_classes.append(anc[1:])
-                elif "." in anc:
-                    _, cls = anc.split(".", 1)
-                    ancestor_classes.append(cls)
-
-            # Build regex to find matching elements
-            # Match: <tag class="...target_class...">...content...</tag>
-            # Where the element is inside an ancestor with ancestor_class
-            # NOTE: Avoid f-strings for regex patterns containing backslash escapes
-            # to maintain Python 3.14 compatibility (strict f-string parser).
-            if target_class:
-                escaped = re.escape(target_class)
-                class_attr = 'class="[^"]*\\b' + escaped + '\\b[^"]*"'
-            else:
-                class_attr = ""
-            tag_pattern = (
-                re.escape(target_tag) if target_tag != "[a-z0-9]+" else target_tag
-            )
-
-            if ancestor_classes:
-                # Find target elements inside ancestor with the right class
-                for anc_cls in ancestor_classes:
-                    anc_pattern = (
-                        r'(<[a-z0-9]+[^>]*class="[^"]*\b'
-                        + re.escape(anc_cls)
-                        + r'\b[^"]*"[^>]*>)(.*?)'
-                        + "(<"
-                        + tag_pattern
-                        + r"(?:\s+[^>]*"
-                        + class_attr
-                        + r"[^>]*)?>)"
-                        + "(.*?)"
-                        + "(</"
-                        + tag_pattern
-                        + ">)"
-                    )
-                    # Apply repeatedly since nested matches could overlap
-                    for _ in range(5):
-                        new_text = re.sub(
-                            anc_pattern,
-                            lambda m: (
-                                m.group(1)  # ancestor opening tag
-                                + m.group(2)  # text between ancestor and target
-                                + m.group(3)  # target opening tag
-                                + ("~~" if "~~" not in m.group(4) else "")
-                                + m.group(4)  # content inside target
-                                + ("~~" if "~~" not in m.group(4) else "")
-                                + m.group(5)  # target closing tag
-                            ),
-                            html_text,
-                            count=0,
-                            flags=re.IGNORECASE | re.DOTALL,
-                        )
-                        if new_text == html_text:
-                            break
-                        html_text = new_text
-            else:
-                # Direct selector — match elements anywhere
-                pattern = (
-                    "(<"
-                    + tag_pattern
-                    + r"(?:\s+[^>]*"
-                    + class_attr
-                    + r"[^>]*)?>)"
-                    + "(.*?)"
-                    + "(</"
-                    + tag_pattern
-                    + ">)"
-                )
-                for _ in range(5):
-                    new_text = re.sub(
-                        pattern,
-                        lambda m: (
-                            m.group(1)
-                            + ("~~" if "~~" not in m.group(2) else "")
-                            + m.group(2)
-                            + ("~~" if "~~" not in m.group(2) else "")
-                            + m.group(3)
-                        ),
-                        html_text,
-                        count=0,
-                        flags=re.IGNORECASE | re.DOTALL,
-                    )
-                    if new_text == html_text:
-                        break
-                    html_text = new_text
-
-        return html_text
 
     async def _fetch_browserless_page_text(self, url: str) -> str:
         """
@@ -758,14 +591,10 @@ class IntegrationBlueprintApiClient:
                     await asyncio.sleep(1)
                     continue
                 msg = f"Error fetching rendered page content - {exception}"
-                raise IntegrationBlueprintApiClientCommunicationError(
-                    msg
-                ) from exception
+                raise AiWebScraperClientCommunicationError(msg) from exception
             except TimeoutError as exception:
                 msg = f"Timeout error fetching rendered page content - {exception}"
-                raise IntegrationBlueprintApiClientCommunicationError(
-                    msg
-                ) from exception
+                raise AiWebScraperClientCommunicationError(msg) from exception
             except aiohttp.ClientResponseError as exception:
                 if exception.status == HTTP_STATUS_NOT_FOUND:
                     msg = (
@@ -780,9 +609,7 @@ class IntegrationBlueprintApiClient:
                         "Error fetching rendered page content - "
                         f"{exception.status} {exception.message}"
                     )
-                raise IntegrationBlueprintApiClientCommunicationError(
-                    msg
-                ) from exception
+                raise AiWebScraperClientCommunicationError(msg) from exception
             except aiohttp.ClientConnectorError as exception:
                 if isinstance(exception.os_error, socket.gaierror):
                     msg = (
@@ -796,20 +623,18 @@ class IntegrationBlueprintApiClient:
                         "Verify your browserless_url is correct and reachable "
                         "from Home Assistant."
                     )
-                raise IntegrationBlueprintApiClientCommunicationError(
-                    msg
-                ) from exception
+                raise AiWebScraperClientCommunicationError(msg) from exception
             except (aiohttp.ClientError, socket.gaierror) as exception:
                 msg = f"Error fetching rendered page content - {exception}"
-                raise IntegrationBlueprintApiClientCommunicationError(
-                    msg
-                ) from exception
+                raise AiWebScraperClientCommunicationError(msg) from exception
+            except asyncio.CancelledError:
+                raise
             except Exception as exception:  # pylint: disable=broad-except
                 msg = f"Something really wrong happened! - {exception}"
-                raise IntegrationBlueprintApiClientError(msg) from exception
+                raise AiWebScraperClientError(msg) from exception
 
         msg = "Unable to fetch rendered page content"
-        raise IntegrationBlueprintApiClientError(msg)
+        raise AiWebScraperClientError(msg)
 
     async def _fetch_browserless_page_screenshot(self, url: str) -> bytes:
         """
@@ -886,9 +711,7 @@ class IntegrationBlueprintApiClient:
                         "browserless add-on, use the add-on host instead of "
                         "localhost (for example http://browserless:3000)."
                     )
-                    raise IntegrationBlueprintApiClientCommunicationError(
-                        msg
-                    ) from exception
+                    raise AiWebScraperClientCommunicationError(msg) from exception
                 if (
                     attempt == 0
                     and RETRY_HTTP_5XX_LOWER <= exception.status < RETRY_HTTP_5XX_UPPER
@@ -899,22 +722,16 @@ class IntegrationBlueprintApiClient:
                     "Error fetching rendered page screenshot - "
                     f"{exception.status} {exception.message}"
                 )
-                raise IntegrationBlueprintApiClientCommunicationError(
-                    msg
-                ) from exception
+                raise AiWebScraperClientCommunicationError(msg) from exception
             except aiohttp.ServerDisconnectedError as exception:
                 if attempt == 0:
                     await asyncio.sleep(1)
                     continue
                 msg = f"Error fetching rendered page screenshot - {exception}"
-                raise IntegrationBlueprintApiClientCommunicationError(
-                    msg
-                ) from exception
+                raise AiWebScraperClientCommunicationError(msg) from exception
             except TimeoutError as exception:
                 msg = f"Timeout error fetching rendered page screenshot - {exception}"
-                raise IntegrationBlueprintApiClientCommunicationError(
-                    msg
-                ) from exception
+                raise AiWebScraperClientCommunicationError(msg) from exception
             except aiohttp.ClientConnectorError as exception:
                 if isinstance(exception.os_error, socket.gaierror):
                     msg = (
@@ -928,25 +745,23 @@ class IntegrationBlueprintApiClient:
                         "Verify your browserless_url is correct and reachable "
                         "from Home Assistant."
                     )
-                raise IntegrationBlueprintApiClientCommunicationError(
-                    msg
-                ) from exception
+                raise AiWebScraperClientCommunicationError(msg) from exception
             except (aiohttp.ClientError, socket.gaierror) as exception:
                 msg = f"Error fetching rendered page screenshot - {exception}"
-                raise IntegrationBlueprintApiClientCommunicationError(
-                    msg
-                ) from exception
+                raise AiWebScraperClientCommunicationError(msg) from exception
+            except asyncio.CancelledError:
+                raise
             except Exception as exception:  # pylint: disable=broad-except
                 msg = f"Something really wrong happened! - {exception}"
-                raise IntegrationBlueprintApiClientError(msg) from exception
+                raise AiWebScraperClientError(msg) from exception
 
         msg = "Unable to fetch rendered page screenshot"
-        raise IntegrationBlueprintApiClientError(msg)
+        raise AiWebScraperClientError(msg)
 
     async def _save_screenshot(self, screenshot: bytes) -> str:
         if not self._screenshot_dir or not self._screenshot_filename:
             msg = "Screenshot storage location is not configured."
-            raise IntegrationBlueprintApiClientError(msg)
+            raise AiWebScraperClientError(msg)
 
         screenshot_path = Path(self._screenshot_dir) / self._screenshot_filename
         screenshot_path.parent.mkdir(parents=True, exist_ok=True)
@@ -971,7 +786,7 @@ class IntegrationBlueprintApiClient:
         LOGGER.debug("Saved debug Markdown to %s", md_path)
 
     def _get_provider(self) -> Provider:
-        if self._provider_type == PROVIDER_TYPE_GEMINI:
+        if self._provider_type == ProviderType.GEMINI:
             return GeminiProvider(
                 api_key=self._api_key,
                 model_name=self._model_name,
@@ -1017,7 +832,7 @@ class IntegrationBlueprintApiClient:
             return ""
 
         # Inject ~~ markers from CSS line-through rules (DOM mode)
-        page_text = self._strikethrough_from_css(page_text)
+        page_text = strikethrough_from_css(page_text)
 
         # Clean up empty ~~ markers left by injected Browserless script
         page_text = page_text.replace("~~~~", "")
@@ -1044,7 +859,7 @@ class IntegrationBlueprintApiClient:
                 "WebSocket browserless URLs are not supported by this integration. "
                 "Use the HTTP browserless addon endpoint instead."
             )
-            raise IntegrationBlueprintApiClientError(msg)
+            raise AiWebScraperClientError(msg)
 
         path = parsed_url.path or ""
         if path.endswith("/") and path != "/":
@@ -1083,9 +898,7 @@ class IntegrationBlueprintApiClient:
 
             except TimeoutError as exception:
                 msg = f"Timeout error fetching information - {exception}"
-                raise IntegrationBlueprintApiClientCommunicationError(
-                    msg
-                ) from exception
+                raise AiWebScraperClientCommunicationError(msg) from exception
 
             except aiohttp.ClientResponseError as exception:
                 if (
@@ -1113,19 +926,17 @@ class IntegrationBlueprintApiClient:
                         f"{exception.status} {exception.message}"
                     )
 
-                raise IntegrationBlueprintApiClientCommunicationError(
-                    msg
-                ) from exception
+                raise AiWebScraperClientCommunicationError(msg) from exception
 
             except (aiohttp.ClientError, socket.gaierror) as exception:
                 msg = f"Error fetching information - {exception}"
-                raise IntegrationBlueprintApiClientCommunicationError(
-                    msg
-                ) from exception
+                raise AiWebScraperClientCommunicationError(msg) from exception
 
+            except asyncio.CancelledError:
+                raise
             except Exception as exception:  # pylint: disable=broad-except
                 msg = f"Something really wrong happened! - {exception}"
-                raise IntegrationBlueprintApiClientError(msg) from exception
+                raise AiWebScraperClientError(msg) from exception
 
         msg = "Error fetching information - retries exhausted"
-        raise IntegrationBlueprintApiClientCommunicationError(msg)
+        raise AiWebScraperClientCommunicationError(msg)

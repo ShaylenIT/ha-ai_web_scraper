@@ -11,14 +11,15 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.util import dt as dt_util
 
-from .entity import IntegrationBlueprintEntity
+from .const import SCRAPER_STATUS_ATTR
+from .entity import AiWebScraperEntity
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
     from .coordinator import AIWebScraperDataUpdateCoordinator
-    from .data import IntegrationBlueprintConfigEntry
+    from .data import AiWebScraperConfigEntry
 
 ENTITY_DESCRIPTIONS = (
     SensorEntityDescription(
@@ -47,12 +48,12 @@ ENTITY_DESCRIPTIONS = (
 
 async def async_setup_entry(
     hass: HomeAssistant,  # noqa: ARG001 Unused function argument: `hass`
-    entry: IntegrationBlueprintConfigEntry,
+    entry: AiWebScraperConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the sensor platform."""
     async_add_entities(
-        IntegrationBlueprintSensor(
+        AiWebScraperSensor(
             coordinator=entry.runtime_data.coordinator,
             entity_description=entity_description,
         )
@@ -60,7 +61,7 @@ async def async_setup_entry(
     )
 
 
-class IntegrationBlueprintSensor(IntegrationBlueprintEntity, SensorEntity):
+class AiWebScraperSensor(AiWebScraperEntity, SensorEntity):
     """ai_web_scraper Sensor class."""
 
     def __init__(
@@ -76,7 +77,7 @@ class IntegrationBlueprintSensor(IntegrationBlueprintEntity, SensorEntity):
         """Return the native value of the sensor."""
         if self.entity_description.key == "ai_web_scraper_status":
             return self.coordinator.data.get("attributes", {}).get(
-                "scraper_status", "unknown"
+                SCRAPER_STATUS_ATTR, "unknown"
             )
 
         if self.entity_description.key == "ai_web_scraper_last_scrape":

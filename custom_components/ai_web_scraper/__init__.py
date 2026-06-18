@@ -16,7 +16,7 @@ from homeassistant.const import Platform
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.loader import async_get_loaded_integration
 
-from .api import IntegrationBlueprintApiClient
+from .api import AiWebScraperClient
 from .const import (
     CONF_API_KEY,
     CONF_BASE_URL,
@@ -40,13 +40,13 @@ from .const import (
     LOGGER,
     OPENAI_COMPATIBLE_TYPES,
     PROVIDER_BASE_URLS,
-    PROVIDER_TYPE_OPENAI,
+    ProviderType,
     SAVE_MARKDOWN_DEBUG,
 )
 from .coordinator import AIWebScraperDataUpdateCoordinator
 from .data import (
-    IntegrationBlueprintConfigEntry,
-    IntegrationBlueprintData,
+    AiWebScraperConfigEntry,
+    AiWebScraperData,
     get_provider_entry,
     get_scraper_entries,
 )
@@ -54,8 +54,8 @@ from .data import (
 
 def _build_entry_client(
     hass: HomeAssistant,
-    entry: IntegrationBlueprintConfigEntry,
-) -> IntegrationBlueprintApiClient:
+    entry: AiWebScraperConfigEntry,
+) -> AiWebScraperClient:
     provider_entry = get_provider_entry(hass, entry.data.get(CONF_PROVIDER_ID, ""))
     provider_name = ""
     api_key = ""
@@ -69,11 +69,9 @@ def _build_entry_client(
         api_key = provider_entry.data.get(CONF_API_KEY, "")
         model_name = provider_entry.data.get(CONF_MODEL_NAME, "")
         browserless_url = provider_entry.data.get(CONF_BROWSERLESS_URL, "")
-        provider_type = provider_entry.data.get(
-            CONF_PROVIDER_TYPE, PROVIDER_TYPE_OPENAI
-        )
+        provider_type = provider_entry.data.get(CONF_PROVIDER_TYPE, ProviderType.OPENAI)
     else:
-        provider_type = PROVIDER_TYPE_OPENAI
+        provider_type = ProviderType.OPENAI
 
     # Resolve base URL: use user-configured value, or fall back to default for known providers
     base_url = provider_entry.data.get(CONF_BASE_URL, "") if provider_entry else ""
@@ -99,7 +97,7 @@ def _build_entry_client(
         int(provider_entry.data.get(CONF_REQUEST_TIMEOUT, 30)) if provider_entry else 30
     )
 
-    return IntegrationBlueprintApiClient(
+    return AiWebScraperClient(
         provider_name=provider_name,
         api_key=api_key,
         model_name=model_name,
@@ -140,7 +138,7 @@ PLATFORMS: list[Platform] = [
 # https://developers.home-assistant.io/docs/config_entries_index/#setting-up-an-entry
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: IntegrationBlueprintConfigEntry,
+    entry: AiWebScraperConfigEntry,
 ) -> bool:
     """Set up this integration using UI."""
     if entry.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_PROVIDER:
@@ -165,7 +163,7 @@ async def async_setup_entry(
     )
     coordinator.config_entry = entry
 
-    entry.runtime_data = IntegrationBlueprintData(
+    entry.runtime_data = AiWebScraperData(
         client=_build_entry_client(hass, entry),
         integration=async_get_loaded_integration(hass, entry.domain),
         coordinator=coordinator,
@@ -204,7 +202,7 @@ async def async_setup_entry(
 
 async def async_unload_entry(
     hass: HomeAssistant,
-    entry: IntegrationBlueprintConfigEntry,
+    entry: AiWebScraperConfigEntry,
 ) -> bool:
     """Handle removal of an entry."""
     if entry.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_PROVIDER:
@@ -214,7 +212,7 @@ async def async_unload_entry(
 
 async def async_reload_provider_dependents(
     hass: HomeAssistant,
-    entry: IntegrationBlueprintConfigEntry,
+    entry: AiWebScraperConfigEntry,
 ) -> None:
     """Reload scraper entries that depend on an updated provider."""
     for scraper_entry in get_scraper_entries(hass):
@@ -230,7 +228,7 @@ async def async_reload_provider_dependents(
 
 async def async_on_scraper_config_update(
     hass: HomeAssistant,
-    entry: IntegrationBlueprintConfigEntry,
+    entry: AiWebScraperConfigEntry,
 ) -> None:
     """
     Handle scraper config updates without full reload.

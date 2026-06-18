@@ -18,18 +18,18 @@ from homeassistant.config_entries import ConfigEntry
 
 from custom_components.ai_web_scraper import __init__ as integration_init
 from custom_components.ai_web_scraper.api import (
-    IntegrationBlueprintApiClient,
-    IntegrationBlueprintApiClientCommunicationError,
-    IntegrationBlueprintApiClientError,
+    AiWebScraperClient,
+    AiWebScraperClientCommunicationError,
+    AiWebScraperClientError,
 )
 from custom_components.ai_web_scraper.binary_sensor import (
-    IntegrationBlueprintBinarySensor,
+    AiWebScraperBinarySensor,
 )
 from custom_components.ai_web_scraper.button import (
     ENTITY_DESCRIPTIONS as BUTTON_ENTITY_DESCRIPTIONS,
 )
 from custom_components.ai_web_scraper.button import (
-    IntegrationBlueprintButton,
+    AiWebScraperButton,
 )
 from custom_components.ai_web_scraper.const import (
     CONF_API_KEY,
@@ -49,15 +49,15 @@ from custom_components.ai_web_scraper.const import (
 from custom_components.ai_web_scraper.coordinator import (
     AIWebScraperDataUpdateCoordinator,
 )
-from custom_components.ai_web_scraper.data import IntegrationBlueprintData
-from custom_components.ai_web_scraper.image import IntegrationBlueprintImage
-from custom_components.ai_web_scraper.number import IntegrationBlueprintNumber
-from custom_components.ai_web_scraper.sensor import IntegrationBlueprintSensor
+from custom_components.ai_web_scraper.data import AiWebScraperData
+from custom_components.ai_web_scraper.image import AiWebScraperImage
+from custom_components.ai_web_scraper.number import AiWebScraperNumber
+from custom_components.ai_web_scraper.sensor import AiWebScraperSensor
 from custom_components.ai_web_scraper.switch import (
     ENTITY_DESCRIPTIONS as SWITCH_ENTITY_DESCRIPTIONS,
 )
 from custom_components.ai_web_scraper.switch import (
-    IntegrationBlueprintSwitch,
+    AiWebScraperSwitch,
 )
 
 if TYPE_CHECKING:
@@ -105,7 +105,7 @@ async def test_coordinator_fetches_scrape_data(hass: HomeAssistant) -> None:
         "last_attempt_status": "success",
     }
 
-    entry.runtime_data = IntegrationBlueprintData(
+    entry.runtime_data = AiWebScraperData(
         client=client,
         integration=AsyncMock(),
         coordinator=coordinator,
@@ -167,7 +167,7 @@ async def test_coordinator_copies_latest_to_previous_on_scrape(
         },
     ]
 
-    entry.runtime_data = IntegrationBlueprintData(
+    entry.runtime_data = AiWebScraperData(
         client=client,
         integration=AsyncMock(),
         coordinator=coordinator,
@@ -269,7 +269,7 @@ async def test_coordinator_copies_latest_to_previous_after_storage_restore(
         "last_attempt_status": "success",
     }
 
-    entry.runtime_data = IntegrationBlueprintData(
+    entry.runtime_data = AiWebScraperData(
         client=client,
         integration=AsyncMock(),
         coordinator=coordinator,
@@ -323,11 +323,11 @@ async def test_coordinator_logs_scrape_failure(
     coordinator.config_entry = entry
 
     client = AsyncMock()
-    client.async_get_data.side_effect = IntegrationBlueprintApiClientError(
+    client.async_get_data.side_effect = AiWebScraperClientError(
         "Missing provider configuration"
     )
 
-    entry.runtime_data = IntegrationBlueprintData(
+    entry.runtime_data = AiWebScraperData(
         client=client,
         integration=AsyncMock(),
         coordinator=coordinator,
@@ -373,7 +373,7 @@ async def test_refresh_button_requests_refresh() -> None:
     )
 
     coordinator = DummyCoordinator(entry, {})
-    button = IntegrationBlueprintButton(
+    button = AiWebScraperButton(
         coordinator=coordinator,
         entity_description=BUTTON_ENTITY_DESCRIPTIONS[0],
     )
@@ -410,7 +410,7 @@ def test_sensor_reports_coordinator_state() -> None:
         "attributes": {"url": "https://example.com", "scrape_duration_seconds": 1},
     }
     coordinator = DummyCoordinator(entry, state)
-    sensor = IntegrationBlueprintSensor(
+    sensor = AiWebScraperSensor(
         coordinator=coordinator,
         entity_description=SensorEntityDescription(
             key="ai_web_scraper_data",
@@ -450,7 +450,7 @@ def test_previous_data_sensor_reports_coordinator_previous_state() -> None:
         "attributes": {"url": "https://example.com"},
     }
     coordinator = DummyCoordinator(entry, state)
-    sensor = IntegrationBlueprintSensor(
+    sensor = AiWebScraperSensor(
         coordinator=coordinator,
         entity_description=SensorEntityDescription(
             key="ai_web_scraper_previous_data",
@@ -492,7 +492,7 @@ def test_screenshot_image_reports_path(tmp_path: Path) -> None:
     hass = MagicMock()
     hass.config.config_dir = str(config_dir)
     coordinator = DummyCoordinator(entry, {})
-    image = IntegrationBlueprintImage(hass, coordinator, str(screenshot_path))
+    image = AiWebScraperImage(hass, coordinator, str(screenshot_path))
 
     assert image.extra_state_attributes == {
         "path": f"/config/{DOMAIN}/screenshots/01KTW9TEN0R79J4XDQ9E319R5Y.png"
@@ -525,7 +525,7 @@ def test_last_scrape_sensor_reports_timestamp() -> None:
         "attributes": {"last_scrape": "2026-06-10T00:00:00+00:00"},
     }
     coordinator = DummyCoordinator(entry, state)
-    sensor = IntegrationBlueprintSensor(
+    sensor = AiWebScraperSensor(
         coordinator=coordinator,
         entity_description=SensorEntityDescription(
             key="ai_web_scraper_last_scrape",
@@ -561,7 +561,7 @@ def test_interval_number_reports_minutes() -> None:
 
     state = {"state": "parsed result", "attributes": {}}
     coordinator = DummyCoordinator(entry, state)
-    number_entity = IntegrationBlueprintNumber(
+    number_entity = AiWebScraperNumber(
         coordinator=coordinator,
         entity_description=NumberEntityDescription(
             key="ai_web_scraper_interval",
@@ -605,7 +605,7 @@ def test_status_binary_sensor_failure_state() -> None:
         "last_attempt_status": "failure",
     }
     coordinator = DummyCoordinator(entry, state)
-    binary_sensor = IntegrationBlueprintBinarySensor(
+    binary_sensor = AiWebScraperBinarySensor(
         coordinator=coordinator,
         entity_description=BinarySensorEntityDescription(
             key="ai_web_scraper_status",
@@ -622,7 +622,7 @@ def test_status_binary_sensor_failure_state() -> None:
 
 async def test_build_entry_client_missing_provider_raises_error() -> None:
     """Test that missing provider configuration raises an API error."""
-    client = IntegrationBlueprintApiClient(
+    client = AiWebScraperClient(
         provider_name="",
         api_key="",
         model_name="gpt-4",
@@ -635,7 +635,7 @@ async def test_build_entry_client_missing_provider_raises_error() -> None:
     )
 
     with pytest.raises(
-        IntegrationBlueprintApiClientError,
+        AiWebScraperClientError,
         match="Missing provider configuration",
     ):
         await client.async_get_data()
@@ -660,7 +660,7 @@ async def test_client_fetches_page_text_when_no_browserless_url() -> None:
     session.get.return_value.__aenter__.return_value = page_response
     session.request.return_value.__aenter__.return_value = provider_response
 
-    client = IntegrationBlueprintApiClient(
+    client = AiWebScraperClient(
         provider_name="provider",
         api_key="key",
         model_name="gpt-4",
@@ -734,7 +734,7 @@ async def test_client_uses_browserless_content_endpoint_when_base_url_passed() -
     session.post.return_value.__aenter__.return_value = page_response
     session.request.return_value.__aenter__.return_value = provider_response
 
-    client = IntegrationBlueprintApiClient(
+    client = AiWebScraperClient(
         provider_name="provider",
         api_key="key",
         model_name="gpt-4",
@@ -815,7 +815,7 @@ async def test_client_uses_browserless_content_endpoint_when_content_path_has_tr
     session.post.return_value.__aenter__.return_value = page_response
     session.request.return_value.__aenter__.return_value = provider_response
 
-    client = IntegrationBlueprintApiClient(
+    client = AiWebScraperClient(
         provider_name="provider",
         api_key="key",
         model_name="gpt-4",
@@ -852,7 +852,7 @@ async def test_client_raises_clear_message_when_browserless_host_dns_fails() -> 
         socket.gaierror(12, "Timeout while contacting DNS servers"),
     )
 
-    client = IntegrationBlueprintApiClient(
+    client = AiWebScraperClient(
         provider_name="provider",
         api_key="key",
         model_name="gpt-4",
@@ -865,7 +865,7 @@ async def test_client_raises_clear_message_when_browserless_host_dns_fails() -> 
     )
 
     with pytest.raises(
-        IntegrationBlueprintApiClientCommunicationError,
+        AiWebScraperClientCommunicationError,
         match="DNS lookup failed for the browserless host",
     ):
         await client._fetch_browserless_page_text("https://example.com")
@@ -924,7 +924,7 @@ async def test_setup_entry_zero_interval_is_manual_only(
                 "last_attempt_status": "success",
             }
 
-    monkeypatch.setattr(integration_init, "IntegrationBlueprintApiClient", DummyClient)
+    monkeypatch.setattr(integration_init, "AiWebScraperClient", DummyClient)
 
     def _ignore_loaded_integration(*_args: Any, **_kwargs: Any) -> None:
         return None
@@ -1000,7 +1000,7 @@ async def test_setup_entry_creates_scraper_entities_and_initial_scrape(
                 "last_attempt_status": "success",
             }
 
-    monkeypatch.setattr(integration_init, "IntegrationBlueprintApiClient", DummyClient)
+    monkeypatch.setattr(integration_init, "AiWebScraperClient", DummyClient)
 
     def _ignore_loaded_integration(*_args: Any, **_kwargs: Any) -> None:
         return None
@@ -1058,7 +1058,7 @@ async def test_scraper_privacy_does_not_persist_files() -> None:
     session = AsyncMock()
     session.request.return_value = DummyResponse()
 
-    client = IntegrationBlueprintApiClient(
+    client = AiWebScraperClient(
         provider_name="provider",
         api_key="key",
         model_name="gpt-4",
@@ -1110,7 +1110,7 @@ async def test_block_consent_modals_switch(hass: HomeAssistant) -> None:
     entry.add_to_hass(hass)
 
     coordinator = DummyCoordinator(entry, {})
-    switch = IntegrationBlueprintSwitch(
+    switch = AiWebScraperSwitch(
         coordinator=coordinator,
         entity_description=SWITCH_ENTITY_DESCRIPTIONS[0],
     )

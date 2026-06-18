@@ -1,5 +1,8 @@
 """Constants for ai_web_scraper."""
 
+from __future__ import annotations
+
+from enum import StrEnum
 from logging import Logger, getLogger
 
 LOGGER: Logger = getLogger(__package__)
@@ -28,48 +31,53 @@ CONF_REQUEST_TIMEOUT = "request_timeout"
 
 CONF_BASE_URL = "base_url"
 
-PROVIDER_TYPE_OPENAI = "openai"
-PROVIDER_TYPE_DEEPSEEK = "deepseek"
-PROVIDER_TYPE_GROQ = "groq"
-PROVIDER_TYPE_LOCALAI = "localai"
-PROVIDER_TYPE_OLLAMA = "ollama"
-PROVIDER_TYPE_OPENWEBUI = "openwebui"
-PROVIDER_TYPE_OPENROUTER = "openrouter"
-PROVIDER_TYPE_OPENAI_COMPATIBLE = "openai_compatible"
-PROVIDER_TYPE_GEMINI = "gemini"
+
+class ProviderType(StrEnum):
+    """AI provider brand identifiers."""
+
+    OPENAI = "openai"
+    DEEPSEEK = "deepseek"
+    GROQ = "groq"
+    LOCALAI = "localai"
+    OLLAMA = "ollama"
+    OPENWEBUI = "openwebui"
+    OPENROUTER = "openrouter"
+    OPENAI_COMPATIBLE = "openai_compatible"
+    GEMINI = "gemini"
+
 
 PROVIDER_TYPES = {
-    PROVIDER_TYPE_OPENAI: "OpenAI",
-    PROVIDER_TYPE_DEEPSEEK: "DeepSeek",
-    PROVIDER_TYPE_GROQ: "Groq",
-    PROVIDER_TYPE_LOCALAI: "LocalAI",
-    PROVIDER_TYPE_OLLAMA: "Ollama",
-    PROVIDER_TYPE_OPENWEBUI: "Open WebUI",
-    PROVIDER_TYPE_OPENROUTER: "OpenRouter",
-    PROVIDER_TYPE_OPENAI_COMPATIBLE: "Custom OpenAI Compatible",
-    PROVIDER_TYPE_GEMINI: "Google Gemini",
+    ProviderType.OPENAI: "OpenAI",
+    ProviderType.DEEPSEEK: "DeepSeek",
+    ProviderType.GROQ: "Groq",
+    ProviderType.LOCALAI: "LocalAI",
+    ProviderType.OLLAMA: "Ollama",
+    ProviderType.OPENWEBUI: "Open WebUI",
+    ProviderType.OPENROUTER: "OpenRouter",
+    ProviderType.OPENAI_COMPATIBLE: "Custom OpenAI Compatible",
+    ProviderType.GEMINI: "Google Gemini",
 }
 
 OPENAI_COMPATIBLE_TYPES = {
-    PROVIDER_TYPE_OPENAI,
-    PROVIDER_TYPE_DEEPSEEK,
-    PROVIDER_TYPE_GROQ,
-    PROVIDER_TYPE_LOCALAI,
-    PROVIDER_TYPE_OLLAMA,
-    PROVIDER_TYPE_OPENWEBUI,
-    PROVIDER_TYPE_OPENROUTER,
-    PROVIDER_TYPE_OPENAI_COMPATIBLE,
+    ProviderType.OPENAI,
+    ProviderType.DEEPSEEK,
+    ProviderType.GROQ,
+    ProviderType.LOCALAI,
+    ProviderType.OLLAMA,
+    ProviderType.OPENWEBUI,
+    ProviderType.OPENROUTER,
+    ProviderType.OPENAI_COMPATIBLE,
 }
 
 PROVIDER_BASE_URLS = {
-    PROVIDER_TYPE_OPENAI: "https://api.openai.com/v1",
-    PROVIDER_TYPE_DEEPSEEK: "https://api.deepseek.com/v1",
-    PROVIDER_TYPE_GROQ: "https://api.groq.com/openai/v1",
-    PROVIDER_TYPE_LOCALAI: "http://localhost:8080/v1",
-    PROVIDER_TYPE_OLLAMA: "http://localhost:11434/v1",
-    PROVIDER_TYPE_OPENWEBUI: "",
-    PROVIDER_TYPE_OPENROUTER: "https://openrouter.ai/api/v1",
-    PROVIDER_TYPE_OPENAI_COMPATIBLE: "",
+    ProviderType.OPENAI: "https://api.openai.com/v1",
+    ProviderType.DEEPSEEK: "https://api.deepseek.com/v1",
+    ProviderType.GROQ: "https://api.groq.com/openai/v1",
+    ProviderType.LOCALAI: "http://localhost:8080/v1",
+    ProviderType.OLLAMA: "http://localhost:11434/v1",
+    ProviderType.OPENWEBUI: "",
+    ProviderType.OPENROUTER: "https://openrouter.ai/api/v1",
+    ProviderType.OPENAI_COMPATIBLE: "",
 }
 
 ENTRY_TYPE_PROVIDER = "provider"
@@ -78,3 +86,19 @@ EXTRACTION_MODES = {
     "dom": "Text/HTML Based Extraction",
     "browser_based": "Browser Based Extraction",
 }
+
+
+class ScraperPhase(StrEnum):
+    """Phase labels emitted during a scrape lifecycle."""
+
+    IDLE = "idle"
+    QUEUED = "queued"
+    COOLING_DOWN = "cooling_down"
+    RENDERING_PAGE = "rendering_page"
+    FETCHING_PAGE = "fetching_page"
+    WAITING_FOR_AI = "waiting_for_ai"
+    REQUESTING_AI = "requesting_ai"
+    COMPLETED = "completed"
+
+
+SCRAPER_STATUS_ATTR = "scraper_status"

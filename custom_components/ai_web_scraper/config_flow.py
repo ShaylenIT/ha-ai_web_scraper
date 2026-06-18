@@ -31,8 +31,7 @@ from .const import (
     LOGGER,
     OPENAI_COMPATIBLE_TYPES,
     PROVIDER_BASE_URLS,
-    PROVIDER_TYPE_GEMINI,
-    PROVIDER_TYPE_OPENAI,
+    ProviderType,
     PROVIDER_TYPES,
 )
 from .data import get_provider_entries
@@ -114,7 +113,7 @@ def _provider_details_schema(
         )
 
     # Gemini: show browserless URL but no base URL
-    if provider_type == PROVIDER_TYPE_GEMINI:
+    if provider_type == ProviderType.GEMINI:
         schema_dict[
             vol.Optional(
                 CONF_BROWSERLESS_URL,
@@ -267,7 +266,7 @@ class AIWebScraperConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     ) -> config_entries.ConfigFlowResult:
         """Step 2: Configure provider-specific fields."""
         errors: dict[str, str] = {}
-        provider_type = getattr(self, "_selected_provider_type", PROVIDER_TYPE_OPENAI)
+        provider_type = getattr(self, "_selected_provider_type", ProviderType.OPENAI)
 
         if user_input is not None:
             missing = [
@@ -299,7 +298,7 @@ class AIWebScraperConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     data[CONF_BROWSERLESS_URL] = user_input.get(
                         CONF_BROWSERLESS_URL, ""
                     )
-                if provider_type == PROVIDER_TYPE_GEMINI:
+                if provider_type == ProviderType.GEMINI:
                     data[CONF_BROWSERLESS_URL] = user_input.get(
                         CONF_BROWSERLESS_URL, ""
                     )
@@ -380,7 +379,7 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
         """Initialize the options flow."""
         self._config_entry = config_entry
         self._selected_provider_type = config_entry.data.get(
-            CONF_PROVIDER_TYPE, PROVIDER_TYPE_OPENAI
+            CONF_PROVIDER_TYPE, ProviderType.OPENAI
         )
 
     async def async_step_init(
@@ -400,7 +399,7 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
         """Step 1: Select the AI provider brand (reconfigure)."""
         errors: dict[str, str] = {}
         current_type = self._config_entry.data.get(
-            CONF_PROVIDER_TYPE, PROVIDER_TYPE_OPENAI
+            CONF_PROVIDER_TYPE, ProviderType.OPENAI
         )
 
         if user_input is not None:
@@ -470,7 +469,7 @@ class AIWebScraperOptionsFlowHandler(config_entries.OptionsFlow):
                             CONF_BROWSERLESS_URL,
                             current_data.get(CONF_BROWSERLESS_URL, ""),
                         )
-                    if provider_type == PROVIDER_TYPE_GEMINI:
+                    if provider_type == ProviderType.GEMINI:
                         updated_data[CONF_BROWSERLESS_URL] = user_input.get(
                             CONF_BROWSERLESS_URL,
                             current_data.get(CONF_BROWSERLESS_URL, ""),
