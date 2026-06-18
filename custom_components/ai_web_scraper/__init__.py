@@ -185,7 +185,11 @@ async def async_setup_entry(
     # returns immediately — the integration won't show "Initialising"
     # while waiting in the semaphore queue behind other scrapers.
     # Entities are already live with stored data from async_load_from_storage().
+    #
+    # async_setup_done is called first from inside the task so HA's startup
+    # notification can dismiss without waiting for the first scrape.
     async def _initial_refresh() -> None:
+        hass.config_entries.async_setup_done(entry)
         await coordinator.async_config_entry_first_refresh()
         # Stagger scraper startups so each one doesn't slam Browserless
         # immediately. The global semaphore in api.py already serialises
@@ -196,10 +200,6 @@ async def async_setup_entry(
 
     refresh_task = hass.async_create_task(_initial_refresh())
     entry.async_on_unload(refresh_task.cancel)
-
-    # Mark the entry as set up so HA can dismiss its startup notification
-    # without waiting for the first scrape to complete.
-    hass.config_entries.async_setup_done(entry)
 
     return True
 
