@@ -117,7 +117,7 @@ class AIWebScraperDataUpdateCoordinator(DataUpdateCoordinator):
         """Persist scrape state so entities survive restarts."""
         await self._storage().async_save(data)
 
-    async def _async_update_data(self) -> Any:
+    async def _async_update_data(self) -> dict[str, Any]:
         """Update data via library."""
         try:
             new_data = await self.config_entry.runtime_data.client.async_get_data()
