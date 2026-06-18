@@ -7,7 +7,6 @@ https://github.com/ludeeus/ai_web_scraper
 
 from __future__ import annotations
 
-import asyncio
 from datetime import timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -182,10 +181,9 @@ async def async_setup_entry(
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     # Fire the first refresh as a background task so async_setup_entry
-    # returns immediately. A 60-second delay gives HA time to finish
-    # its startup phase and dismiss notifications before scrapers begin.
+    # returns immediately. Entities are already live with stored data
+    # from async_load_from_storage().
     async def _initial_refresh() -> None:
-        await asyncio.sleep(60)
         await coordinator.async_config_entry_first_refresh()
 
     refresh_task = hass.async_create_task(_initial_refresh())
