@@ -187,7 +187,7 @@ async def async_setup_entry(
     # takes over for subsequent auto-refreshes.
     @callback
     def _delayed_first_refresh():
-        hass.async_create_task(coordinator.async_config_entry_first_refresh())
+        hass.async_create_task(coordinator._async_refresh())
 
     timer = hass.loop.call_later(60, _delayed_first_refresh)
     entry.async_on_unload(timer.cancel)
