@@ -61,9 +61,18 @@ from custom_components.ai_web_scraper.switch import (
     AiWebScraperSwitch,
 )
 
+
 class _FakeResponse:
     """Minimal fake response for scraper tests."""
-    def __init__(self, status: int = 200, headers: dict | None = None, text: str = "", json_data: dict | None = None, content: bytes = b"") -> None:
+
+    def __init__(
+        self,
+        status: int = 200,
+        headers: dict | None = None,
+        text: str = "",
+        json_data: dict | None = None,
+        content: bytes = b"",
+    ) -> None:
         self.status = status
         self.headers = headers or {}
         self._text = text
@@ -79,9 +88,6 @@ class _FakeResponse:
 
     async def read(self) -> bytes:
         return self._content
-
-
-
 
 
 def _add_entry_no_setup(hass: HomeAssistant, entry: ConfigEntry) -> None:
@@ -148,6 +154,7 @@ async def test_coordinator_fetches_scrape_data(hass: HomeAssistant) -> None:
     )
 
     from homeassistant.config_entries import ConfigEntryState
+
     object.__setattr__(entry, "state", ConfigEntryState.SETUP_IN_PROGRESS)
     await coordinator.async_config_entry_first_refresh()
 
@@ -215,6 +222,7 @@ async def test_coordinator_copies_latest_to_previous_on_scrape(
     )
 
     from homeassistant.config_entries import ConfigEntryState
+
     object.__setattr__(entry, "state", ConfigEntryState.SETUP_IN_PROGRESS)
     await coordinator.async_config_entry_first_refresh()
     assert coordinator.data["state"] == "first result"
@@ -387,6 +395,7 @@ async def test_coordinator_logs_scrape_failure(
 
     caplog.set_level("ERROR")
     from homeassistant.config_entries import ConfigEntryState
+
     object.__setattr__(entry, "state", ConfigEntryState.SETUP_IN_PROGRESS)
     await coordinator.async_config_entry_first_refresh()
 
@@ -730,8 +739,10 @@ async def test_client_fetches_page_text_when_no_browserless_url() -> None:
 
     async def _mock_get(*args, **kwargs):
         return page_response
+
     async def _mock_request(*args, **kwargs):
         return provider_response
+
     session = AsyncMock()
     session.get.side_effect = _mock_get
     session.request.side_effect = _mock_request
@@ -797,15 +808,15 @@ async def test_client_uses_browserless_content_endpoint_when_base_url_passed() -
     provider_response = _FakeResponse(
         status=200,
         headers={"Content-Type": "application/json"},
-        json_data={
-            "choices": [{"message": {"content": "Rendered extracted output"}}]
-        },
+        json_data={"choices": [{"message": {"content": "Rendered extracted output"}}]},
     )
 
     async def _mock_get(*args, **kwargs):
         return page_response
+
     async def _mock_request(*args, **kwargs):
         return provider_response
+
     session = AsyncMock()
     session.post.side_effect = _mock_get
     session.request.side_effect = _mock_request
@@ -830,7 +841,10 @@ async def test_client_uses_browserless_content_endpoint_when_base_url_passed() -
     call_args = session.post.await_args_list[0]
     assert call_args[0][0] == "http://browserless:3000/content"
     assert call_args[1]["json"]["url"] == "https://example.com"
-    assert call_args[1]["json"]["gotoOptions"] == {"waitUntil": "networkidle2", "timeout": 30000}
+    assert call_args[1]["json"]["gotoOptions"] == {
+        "waitUntil": "networkidle2",
+        "timeout": 30000,
+    }
     assert call_args[1]["json"]["bestAttempt"] is True
     assert "addScriptTag" in call_args[1]["json"]
     assert session.request.await_count == 1
@@ -845,15 +859,15 @@ async def test_client_uses_browserless_content_endpoint_when_content_path_has_tr
     provider_response = _FakeResponse(
         status=200,
         headers={"Content-Type": "application/json"},
-        json_data={
-            "choices": [{"message": {"content": "Rendered extracted output"}}]
-        },
+        json_data={"choices": [{"message": {"content": "Rendered extracted output"}}]},
     )
 
     async def _mock_post(*args, **kwargs):
         return page_response
+
     async def _mock_request(*args, **kwargs):
         return provider_response
+
     session = AsyncMock()
     session.post.side_effect = _mock_post
     session.request.side_effect = _mock_request
@@ -879,7 +893,10 @@ async def test_client_uses_browserless_content_endpoint_when_content_path_has_tr
     # Trailing slash should be stripped
     assert call_args[0][0] == "http://browserless:3000/content"
     assert call_args[1]["json"]["url"] == "https://example.com"
-    assert call_args[1]["json"]["gotoOptions"] == {"waitUntil": "networkidle2", "timeout": 30000}
+    assert call_args[1]["json"]["gotoOptions"] == {
+        "waitUntil": "networkidle2",
+        "timeout": 30000,
+    }
     assert call_args[1]["json"]["bestAttempt"] is True
     assert "addScriptTag" in call_args[1]["json"]
 

@@ -12,7 +12,6 @@ from homeassistant.data_entry_flow import FlowResultType
 from custom_components.ai_web_scraper.const import (
     CONF_API_KEY,
     CONF_BASE_URL,
-    CONF_BLOCK_CONSENT_MODALS,
     CONF_BROWSERLESS_URL,
     CONF_COOL_DOWN_SECONDS,
     CONF_ENTRY_TYPE,

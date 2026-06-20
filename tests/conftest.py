@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 if TYPE_CHECKING:
-    from homeassistant.core import HomeAssistant
+    pass
 
 # Ensure the project root is on sys.path so that
 # custom_components.ai_web_scraper can be imported

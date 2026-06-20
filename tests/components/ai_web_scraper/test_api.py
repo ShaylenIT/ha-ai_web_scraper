@@ -370,6 +370,7 @@ def test_browserless_screenshot_is_saved_to_disk(tmp_path) -> None:
 
 def test_browserless_screenshot_raises_on_400_bad_request() -> None:
     """A 400 Bad Request from the screenshot endpoint raises an error."""
+
     class FakeResponse:
         def __init__(self, status: int) -> None:
             self.status = status
@@ -404,9 +405,7 @@ def test_browserless_screenshot_raises_on_400_bad_request() -> None:
     )
 
     with pytest.raises(AiWebScraperClientCommunicationError) as exc_info:
-        asyncio.run(
-            client._fetch_browserless_page_screenshot("https://example.com")
-        )
+        asyncio.run(client._fetch_browserless_page_screenshot("https://example.com"))
 
     assert "400 Bad Request" in str(exc_info.value)
 
