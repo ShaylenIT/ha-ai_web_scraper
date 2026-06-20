@@ -2,11 +2,11 @@
   "domain": "ai_web_scraper",
   "name": "AI Web Scraper",
   "codeowners": [
-    "@ludeeus"
+    "@ShaylenIT"
   ],
   "config_flow": true,
-  "documentation": "https://github.com/ludeeus/ai_web_scraper",
+  "documentation": "https://github.com/ShaylenIT/ha-ai_web_scraper",
   "iot_class": "cloud_polling",
-  "issue_tracker": "https://github.com/ludeeus/ai_web_scraper/issues",
+  "issue_tracker": "https://github.com/ShaylenIT/ha-ai_web_scraper/issues",
   "version": "0.1.6"
 }

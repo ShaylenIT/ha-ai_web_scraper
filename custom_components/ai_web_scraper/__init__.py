@@ -2,7 +2,7 @@
 Custom integration to integrate ai_web_scraper with Home Assistant.
 
 For more details about this integration, please refer to
-https://github.com/ludeeus/ai_web_scraper
+https://github.com/ShaylenIT/ha-ai_web_scraper
 """
 
 from __future__ import annotations
