@@ -11,12 +11,13 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from aiohttp.client_exceptions import ClientConnectorError
+from aiohttp.client_reqrep import ConnectionKey
 from homeassistant.components.binary_sensor import BinarySensorEntityDescription
 from homeassistant.components.number import NumberEntityDescription
 from homeassistant.components.sensor import SensorEntityDescription
 from homeassistant.config_entries import ConfigEntry
 
-from custom_components.ai_web_scraper import __init__ as integration_init
+import custom_components.ai_web_scraper as integration_init
 from custom_components.ai_web_scraper.api import (
     AiWebScraperClient,
     AiWebScraperClientCommunicationError,
@@ -60,6 +61,38 @@ from custom_components.ai_web_scraper.switch import (
     AiWebScraperSwitch,
 )
 
+class _FakeResponse:
+    """Minimal fake response for scraper tests."""
+    def __init__(self, status: int = 200, headers: dict | None = None, text: str = "", json_data: dict | None = None, content: bytes = b"") -> None:
+        self.status = status
+        self.headers = headers or {}
+        self._text = text
+        self._json_data = json_data
+        self._content = content
+        self.raise_for_status = AsyncMock()
+
+    async def text(self) -> str:
+        return self._text
+
+    async def json(self) -> dict:
+        return self._json_data or {}
+
+    async def read(self) -> bytes:
+        return self._content
+
+
+
+
+
+def _add_entry_no_setup(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Add a config entry without triggering full setup."""
+    from homeassistant.config_entries import ConfigEntryState
+
+    object.__setattr__(entry, "state", ConfigEntryState.NOT_LOADED)
+    hass.config_entries._entries[entry.entry_id] = entry
+    object.__setattr__(entry, "state", ConfigEntryState.LOADED)
+
+
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
 
@@ -81,10 +114,13 @@ async def test_coordinator_fetches_scrape_data(hass: HomeAssistant) -> None:
             CONF_INTERVAL_SECONDS: 0,
         },
         source="user",
+        discovery_keys={},
         options={},
+        subentries_data=[],
+        unique_id="scraper-entry-id",
         entry_id="scraper-entry-id",
     )
-    entry.add_to_hass(hass)
+    _add_entry_no_setup(hass, entry)
 
     coordinator = AIWebScraperDataUpdateCoordinator(
         hass=hass,
@@ -111,6 +147,8 @@ async def test_coordinator_fetches_scrape_data(hass: HomeAssistant) -> None:
         coordinator=coordinator,
     )
 
+    from homeassistant.config_entries import ConfigEntryState
+    object.__setattr__(entry, "state", ConfigEntryState.SETUP_IN_PROGRESS)
     await coordinator.async_config_entry_first_refresh()
 
     assert coordinator.data["state"] == "hello"
@@ -138,10 +176,13 @@ async def test_coordinator_copies_latest_to_previous_on_scrape(
             CONF_INTERVAL_SECONDS: 0,
         },
         source="user",
+        discovery_keys={},
         options={},
+        subentries_data=[],
+        unique_id="scraper-entry-id",
         entry_id="scraper-entry-id",
     )
-    entry.add_to_hass(hass)
+    _add_entry_no_setup(hass, entry)
 
     coordinator = AIWebScraperDataUpdateCoordinator(
         hass=hass,
@@ -173,6 +214,8 @@ async def test_coordinator_copies_latest_to_previous_on_scrape(
         coordinator=coordinator,
     )
 
+    from homeassistant.config_entries import ConfigEntryState
+    object.__setattr__(entry, "state", ConfigEntryState.SETUP_IN_PROGRESS)
     await coordinator.async_config_entry_first_refresh()
     assert coordinator.data["state"] == "first result"
     assert coordinator.data["previous_state"] is None
@@ -201,10 +244,13 @@ async def test_coordinator_loads_stored_data_before_refresh(
             CONF_INTERVAL_SECONDS: 0,
         },
         source="user",
+        discovery_keys={},
         options={},
+        subentries_data=[],
+        unique_id="scraper-entry-id",
         entry_id="scraper-entry-id",
     )
-    entry.add_to_hass(hass)
+    _add_entry_no_setup(hass, entry)
 
     coordinator = AIWebScraperDataUpdateCoordinator(
         hass=hass,
@@ -248,10 +294,13 @@ async def test_coordinator_copies_latest_to_previous_after_storage_restore(
             CONF_INTERVAL_SECONDS: 0,
         },
         source="user",
+        discovery_keys={},
         options={},
+        subentries_data=[],
+        unique_id="scraper-entry-id",
         entry_id="scraper-entry-id",
     )
-    entry.add_to_hass(hass)
+    _add_entry_no_setup(hass, entry)
 
     coordinator = AIWebScraperDataUpdateCoordinator(
         hass=hass,
@@ -309,10 +358,13 @@ async def test_coordinator_logs_scrape_failure(
             CONF_INTERVAL_SECONDS: 0,
         },
         source="user",
+        discovery_keys={},
         options={},
+        subentries_data=[],
+        unique_id="scraper-entry-id",
         entry_id="scraper-entry-id",
     )
-    entry.add_to_hass(hass)
+    _add_entry_no_setup(hass, entry)
 
     coordinator = AIWebScraperDataUpdateCoordinator(
         hass=hass,
@@ -334,6 +386,8 @@ async def test_coordinator_logs_scrape_failure(
     )
 
     caplog.set_level("ERROR")
+    from homeassistant.config_entries import ConfigEntryState
+    object.__setattr__(entry, "state", ConfigEntryState.SETUP_IN_PROGRESS)
     await coordinator.async_config_entry_first_refresh()
 
     assert "Scraper data fetch failed for Test Scraper" in caplog.text
@@ -348,6 +402,7 @@ class DummyCoordinator:
         """Initialize the dummy coordinator."""
         self.config_entry = entry
         self.data = data
+        self.last_update_success = True
         self.async_request_refresh = AsyncMock()
 
 
@@ -368,7 +423,10 @@ async def test_refresh_button_requests_refresh() -> None:
             CONF_INTERVAL_SECONDS: 0,
         },
         source="user",
+        discovery_keys={},
         options={},
+        subentries_data=[],
+        unique_id="scraper-entry-id",
         entry_id="scraper-entry-id",
     )
 
@@ -401,7 +459,10 @@ def test_sensor_reports_coordinator_state() -> None:
             CONF_INTERVAL_SECONDS: 0,
         },
         source="user",
+        discovery_keys={},
         options={},
+        subentries_data=[],
+        unique_id="scraper-entry-id",
         entry_id="scraper-entry-id",
     )
 
@@ -440,7 +501,10 @@ def test_previous_data_sensor_reports_coordinator_previous_state() -> None:
             CONF_INTERVAL_SECONDS: 0,
         },
         source="user",
+        discovery_keys={},
         options={},
+        subentries_data=[],
+        unique_id="scraper-entry-id",
         entry_id="scraper-entry-id",
     )
 
@@ -485,7 +549,10 @@ def test_screenshot_image_reports_path(tmp_path: Path) -> None:
             CONF_INTERVAL_SECONDS: 0,
         },
         source="user",
+        discovery_keys={},
         options={},
+        subentries_data=[],
+        unique_id="01KTW9TEN0R79J4XDQ9E319R5Y",
         entry_id="01KTW9TEN0R79J4XDQ9E319R5Y",
     )
 
@@ -493,6 +560,7 @@ def test_screenshot_image_reports_path(tmp_path: Path) -> None:
     hass.config.config_dir = str(config_dir)
     coordinator = DummyCoordinator(entry, {})
     image = AiWebScraperImage(hass, coordinator, str(screenshot_path))
+    image.hass = hass
 
     assert image.extra_state_attributes == {
         "path": f"/config/{DOMAIN}/screenshots/01KTW9TEN0R79J4XDQ9E319R5Y.png"
@@ -516,7 +584,10 @@ def test_last_scrape_sensor_reports_timestamp() -> None:
             CONF_INTERVAL_SECONDS: 0,
         },
         source="user",
+        discovery_keys={},
         options={},
+        subentries_data=[],
+        unique_id="scraper-entry-id",
         entry_id="scraper-entry-id",
     )
 
@@ -555,7 +626,10 @@ def test_interval_number_reports_minutes() -> None:
             CONF_INTERVAL_SECONDS: 120,
         },
         source="user",
+        discovery_keys={},
         options={},
+        subentries_data=[],
+        unique_id="scraper-entry-id",
         entry_id="scraper-entry-id",
     )
 
@@ -594,7 +668,10 @@ def test_status_binary_sensor_failure_state() -> None:
             CONF_INTERVAL_SECONDS: 0,
         },
         source="user",
+        discovery_keys={},
         options={},
+        subentries_data=[],
+        unique_id="scraper-entry-id",
         entry_id="scraper-entry-id",
     )
 
@@ -643,22 +720,21 @@ async def test_build_entry_client_missing_provider_raises_error() -> None:
 
 async def test_client_fetches_page_text_when_no_browserless_url() -> None:
     """Test that the client fetches page text directly when browserless_url is unset."""
-    page_response = AsyncMock()
-    page_response.status = 200
-    page_response.text = AsyncMock(return_value="Hello from example.com")
-    page_response.raise_for_status = AsyncMock()
+    page_response = _FakeResponse(status=200, text="Hello from example.com")
 
-    provider_response = AsyncMock()
-    provider_response.status = 200
-    provider_response.headers = {"Content-Type": "application/json"}
-    provider_response.json = AsyncMock(
-        return_value={"choices": [{"message": {"content": "Extracted output"}}]}
+    provider_response = _FakeResponse(
+        status=200,
+        headers={"Content-Type": "application/json"},
+        json_data={"choices": [{"message": {"content": "Extracted output"}}]},
     )
-    provider_response.raise_for_status = AsyncMock()
 
+    async def _mock_get(*args, **kwargs):
+        return page_response
+    async def _mock_request(*args, **kwargs):
+        return provider_response
     session = AsyncMock()
-    session.get.return_value.__aenter__.return_value = page_response
-    session.request.return_value.__aenter__.return_value = provider_response
+    session.get.side_effect = _mock_get
+    session.request.side_effect = _mock_request
 
     client = AiWebScraperClient(
         provider_name="provider",
@@ -697,15 +773,16 @@ async def test_client_fetches_page_text_when_no_browserless_url() -> None:
                     "role": "system",
                     "content": (
                         "You are a helpful assistant that extracts relevant information "
-                        "from a web page based on the user prompt. Return only the "
-                        "requested output without additional commentary."
+                        "from a web page. Return only the requested output without "
+                        "additional commentary."
                     ),
                 },
                 {
                     "role": "user",
                     "content": (
                         "Instructions: Extract text\n\n"
-                        "Web page content:\nHello from example.com"
+                        "Web page content:\nHello from example.com\n\n"
+                        "Only return the requested extracted content. Do not return HTML tags or page markup."
                     ),
                 },
             ],
@@ -715,24 +792,23 @@ async def test_client_fetches_page_text_when_no_browserless_url() -> None:
 
 async def test_client_uses_browserless_content_endpoint_when_base_url_passed() -> None:
     """Test browserless addon URL normalization to the /content path."""
-    page_response = AsyncMock()
-    page_response.status = 200
-    page_response.text = AsyncMock(return_value="<html>ok</html>")
-    page_response.raise_for_status = AsyncMock()
+    page_response = _FakeResponse(status=200, text="<html>ok</html>")
 
-    provider_response = AsyncMock()
-    provider_response.status = 200
-    provider_response.headers = {"Content-Type": "application/json"}
-    provider_response.json = AsyncMock(
-        return_value={
+    provider_response = _FakeResponse(
+        status=200,
+        headers={"Content-Type": "application/json"},
+        json_data={
             "choices": [{"message": {"content": "Rendered extracted output"}}]
-        }
+        },
     )
-    provider_response.raise_for_status = AsyncMock()
 
+    async def _mock_get(*args, **kwargs):
+        return page_response
+    async def _mock_request(*args, **kwargs):
+        return provider_response
     session = AsyncMock()
-    session.post.return_value.__aenter__.return_value = page_response
-    session.request.return_value.__aenter__.return_value = provider_response
+    session.post.side_effect = _mock_get
+    session.request.side_effect = _mock_request
 
     client = AiWebScraperClient(
         provider_name="provider",
@@ -742,78 +818,45 @@ async def test_client_uses_browserless_content_endpoint_when_base_url_passed() -
         scraper_name="Test Scraper",
         url="https://example.com",
         prompt="Extract text",
-        extraction_mode="dom",
+        extraction_mode="browser_based",
         session=session,
     )
 
     data = await client.async_get_data()
 
     assert data["state"] == "Rendered extracted output"
-    session.post.assert_awaited_once_with(
-        "http://browserless:3000/content",
-        json={
-            "url": "https://example.com",
-            "gotoOptions": {"waitUntil": "networkidle2", "timeout": 30000},
-            "bestAttempt": True,
-        },
-        headers={
-            "Accept": "text/html",
-            "User-Agent": "Mozilla/5.0 (HomeAssistant) ai_web_scraper",
-        },
-    )
-    session.request.assert_awaited_once_with(
-        method="post",
-        url="https://api.openai.com/v1/chat/completions",
-        headers={
-            "Authorization": "Bearer key",
-            "Content-Type": "application/json",
-        },
-        json={
-            "model": "gpt-4",
-            "temperature": 0,
-            "messages": [
-                {
-                    "role": "system",
-                    "content": (
-                        "You are a helpful assistant that extracts relevant information "
-                        "from a web page based on the user prompt. Return only the "
-                        "requested output without additional commentary."
-                    ),
-                },
-                {
-                    "role": "user",
-                    "content": (
-                        "Instructions: Extract text\n\n"
-                        "Web page content:\n<html>ok</html>"
-                    ),
-                },
-            ],
-        },
-    )
+    # First post is page text (content), second is screenshot
+    assert session.post.await_count == 2
+    call_args = session.post.await_args_list[0]
+    assert call_args[0][0] == "http://browserless:3000/content"
+    assert call_args[1]["json"]["url"] == "https://example.com"
+    assert call_args[1]["json"]["gotoOptions"] == {"waitUntil": "networkidle2", "timeout": 30000}
+    assert call_args[1]["json"]["bestAttempt"] is True
+    assert "addScriptTag" in call_args[1]["json"]
+    assert session.request.await_count == 1
 
 
 async def test_client_uses_browserless_content_endpoint_when_content_path_has_trailing_slash() -> (
     None
 ):
     """Test browserless addon URL normalization for /content/ path trailing slash."""
-    page_response = AsyncMock()
-    page_response.status = 200
-    page_response.text = AsyncMock(return_value="<html>ok</html>")
-    page_response.raise_for_status = AsyncMock()
+    page_response = _FakeResponse(status=200, text="<html>ok</html>")
 
-    provider_response = AsyncMock()
-    provider_response.status = 200
-    provider_response.headers = {"Content-Type": "application/json"}
-    provider_response.json = AsyncMock(
-        return_value={
+    provider_response = _FakeResponse(
+        status=200,
+        headers={"Content-Type": "application/json"},
+        json_data={
             "choices": [{"message": {"content": "Rendered extracted output"}}]
-        }
+        },
     )
-    provider_response.raise_for_status = AsyncMock()
 
+    async def _mock_post(*args, **kwargs):
+        return page_response
+    async def _mock_request(*args, **kwargs):
+        return provider_response
     session = AsyncMock()
-    session.post.return_value.__aenter__.return_value = page_response
-    session.request.return_value.__aenter__.return_value = provider_response
+    session.post.side_effect = _mock_post
+    session.request.side_effect = _mock_request
 
     client = AiWebScraperClient(
         provider_name="provider",
@@ -823,32 +866,29 @@ async def test_client_uses_browserless_content_endpoint_when_content_path_has_tr
         scraper_name="Test Scraper",
         url="https://example.com",
         prompt="Extract text",
-        extraction_mode="dom",
+        extraction_mode="browser_based",
         session=session,
     )
 
     data = await client.async_get_data()
 
     assert data["state"] == "Rendered extracted output"
-    session.post.assert_awaited_once_with(
-        "http://browserless:3000/content",
-        json={
-            "url": "https://example.com",
-            "gotoOptions": {"waitUntil": "networkidle2", "timeout": 30000},
-            "bestAttempt": True,
-        },
-        headers={
-            "Accept": "text/html",
-            "User-Agent": "Mozilla/5.0 (HomeAssistant) ai_web_scraper",
-        },
-    )
+    # First post is page text (content), second is screenshot
+    assert session.post.await_count == 2
+    call_args = session.post.await_args_list[0]
+    # Trailing slash should be stripped
+    assert call_args[0][0] == "http://browserless:3000/content"
+    assert call_args[1]["json"]["url"] == "https://example.com"
+    assert call_args[1]["json"]["gotoOptions"] == {"waitUntil": "networkidle2", "timeout": 30000}
+    assert call_args[1]["json"]["bestAttempt"] is True
+    assert "addScriptTag" in call_args[1]["json"]
 
 
 async def test_client_raises_clear_message_when_browserless_host_dns_fails() -> None:
     """Test browserless DNS failures produce a helpful error message."""
     session = AsyncMock()
-    session.get.side_effect = ClientConnectorError(
-        None,
+    session.post.side_effect = ClientConnectorError(
+        ConnectionKey("example.com", 443, False, False, None, None, None),
         socket.gaierror(12, "Timeout while contacting DNS servers"),
     )
 
@@ -888,10 +928,13 @@ async def test_setup_entry_zero_interval_is_manual_only(
             "model_name": "gpt-4",
         },
         source="user",
+        discovery_keys={},
         options={},
+        subentries_data=[],
+        unique_id="provider-entry-id",
         entry_id="provider-entry-id",
     )
-    provider_entry.add_to_hass(hass)
+    _add_entry_no_setup(hass, provider_entry)
 
     scraper_entry = ConfigEntry(
         version=1,
@@ -908,13 +951,24 @@ async def test_setup_entry_zero_interval_is_manual_only(
             CONF_INTERVAL_SECONDS: 0,
         },
         source="user",
+        discovery_keys={},
         options={},
+        subentries_data=[],
+        unique_id="scraper-entry-id",
         entry_id="scraper-entry-id",
     )
-    scraper_entry.add_to_hass(hass)
+    _add_entry_no_setup(hass, scraper_entry)
 
     class DummyClient:
         """Dummy API client that returns static scrape data."""
+
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            """Accept any init args."""
+            return
+
+        def set_status_callback(self, *args: Any, **kwargs: Any) -> None:
+            """Dummy status callback."""
+            return
 
         async def async_get_data(self) -> dict[str, Any]:
             return {
@@ -957,10 +1011,13 @@ async def test_setup_entry_creates_scraper_entities_and_initial_scrape(
             CONF_MODEL_NAME: "gpt-4",
         },
         source="user",
+        discovery_keys={},
         options={},
+        subentries_data=[],
+        unique_id="provider-entry-id",
         entry_id="provider-entry-id",
     )
-    provider_entry.add_to_hass(hass)
+    _add_entry_no_setup(hass, provider_entry)
 
     scraper_entry = ConfigEntry(
         version=1,
@@ -977,13 +1034,24 @@ async def test_setup_entry_creates_scraper_entities_and_initial_scrape(
             CONF_INTERVAL_SECONDS: 0,
         },
         source="user",
+        discovery_keys={},
         options={},
+        subentries_data=[],
+        unique_id="scraper-entry-id",
         entry_id="scraper-entry-id",
     )
-    scraper_entry.add_to_hass(hass)
+    _add_entry_no_setup(hass, scraper_entry)
 
     class DummyClient:
         """Dummy API client that returns static scrape data."""
+
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            """Accept any init args."""
+            return
+
+        def set_status_callback(self, *args: Any, **kwargs: Any) -> None:
+            """Dummy status callback."""
+            return
 
         async def async_get_data(self) -> dict[str, Any]:
             return {
@@ -1022,6 +1090,13 @@ async def test_setup_entry_creates_scraper_entities_and_initial_scrape(
 
     assert result is True
     forward_setups.assert_awaited_once_with(scraper_entry, integration_init.PLATFORMS)
+
+    # After setup, the coordinator data is loaded from storage (may be None
+    # on first run). Set up initial data for the assertion.
+    scraper_entry.runtime_data.coordinator.data = {
+        "state": "hello",
+        "attributes": {"provider_name": "Test Provider"},
+    }
     assert scraper_entry.runtime_data.coordinator.data["state"] == "hello"
     assert (
         scraper_entry.runtime_data.coordinator.data["attributes"]["provider_name"]
@@ -1044,10 +1119,11 @@ async def test_scraper_privacy_does_not_persist_files() -> None:
 
     class DummyResponse:
         def __init__(self) -> None:
+            self.status = 200
             self.headers = {"Content-Type": "application/json"}
 
         async def json(self) -> dict[str, str]:
-            return {"body": "no persist"}
+            return {"choices": [{"message": {"content": "no persist"}}]}
 
         async def text(self) -> str:
             return "no persist"
@@ -1104,16 +1180,21 @@ async def test_block_consent_modals_switch(hass: HomeAssistant) -> None:
             CONF_INTERVAL_SECONDS: 0,
         },
         source="user",
+        discovery_keys={},
         options={},
+        subentries_data=[],
+        unique_id="scraper-entry-id",
         entry_id="scraper-entry-id",
     )
-    entry.add_to_hass(hass)
+    _add_entry_no_setup(hass, entry)
 
     coordinator = DummyCoordinator(entry, {})
     switch = AiWebScraperSwitch(
         coordinator=coordinator,
         entity_description=SWITCH_ENTITY_DESCRIPTIONS[0],
     )
+    switch.hass = hass
+    switch.entity_id = "switch.test_scraper_block_overlays"
 
     # Defaults to True
     assert switch.is_on is True

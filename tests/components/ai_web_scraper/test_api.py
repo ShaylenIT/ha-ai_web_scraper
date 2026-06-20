@@ -4,6 +4,8 @@ import asyncio
 from unittest.mock import AsyncMock
 
 import aiohttp
+import pytest
+from yarl import URL
 
 from custom_components.ai_web_scraper.api import (
     AiWebScraperClient,
@@ -14,18 +16,32 @@ from custom_components.ai_web_scraper.api import (
 from custom_components.ai_web_scraper.const import (
     OPENAI_COMPATIBLE_TYPES,
     PROVIDER_BASE_URLS,
-    PROVIDER_TYPE_GEMINI,
-    PROVIDER_TYPE_GROQ,
-    PROVIDER_TYPE_LOCALAI,
-    PROVIDER_TYPE_OLLAMA,
-    PROVIDER_TYPE_OPENAI,
-    PROVIDER_TYPE_OPENAI_COMPATIBLE,
-    PROVIDER_TYPE_OPENROUTER,
+    ProviderType,
 )
+
+
+def _make_request_info() -> aiohttp.RequestInfo:
+    """Create a minimal RequestInfo for ClientResponseError construction."""
+    return aiohttp.RequestInfo(
+        url=URL("http://example.com"),
+        method="POST",
+        headers={},
+        real_url=URL("http://example.com"),
+    )
 
 
 class DummySession:
     """Minimal fake session for API client tests."""
+
+    async def get(self, url: str, **kwargs: object) -> None:  # type: ignore[override]
+        """Dummy get — not used in tests that mock _get_page_text."""
+        msg = "DummySession.get() called — mock _get_page_text to avoid this"
+        raise RuntimeError(msg)
+
+    async def request(self, *args: object, **kwargs: object) -> None:
+        """Dummy request — not used in tests that mock _api_wrapper."""
+        msg = "DummySession.request() called — mock _api_wrapper to avoid this"
+        raise RuntimeError(msg)
 
 
 def test_gemini_provider_extract_uses_gemini_generate_endpoint() -> None:
@@ -39,7 +55,7 @@ def test_gemini_provider_extract_uses_gemini_generate_endpoint() -> None:
         prompt="Extract text",
         extraction_mode="dom",
         session=DummySession(),
-        provider_type=PROVIDER_TYPE_GEMINI,
+        provider_type=ProviderType.GEMINI,
     )
     client._get_page_text = AsyncMock(return_value="<html>hello</html>")
     client._api_wrapper = AsyncMock(
@@ -70,7 +86,7 @@ def test_provider_factory_selects_openai_compatible_by_default() -> None:
         prompt="Extract text",
         extraction_mode="dom",
         session=DummySession(),
-        provider_type=PROVIDER_TYPE_OPENAI,
+        provider_type=ProviderType.OPENAI,
     )
 
     provider = client._get_provider()
@@ -103,11 +119,11 @@ def test_provider_factory_returns_openai_compatible_for_all_types() -> None:
 def test_provider_factory_uses_correct_default_base_url() -> None:
     """Each provider type defaults to the correct base URL."""
     test_cases = [
-        (PROVIDER_TYPE_OPENAI, "https://api.openai.com/v1/chat/completions"),
-        (PROVIDER_TYPE_GROQ, "https://api.groq.com/openai/v1/chat/completions"),
-        (PROVIDER_TYPE_LOCALAI, "http://localhost:8080/v1/chat/completions"),
-        (PROVIDER_TYPE_OLLAMA, "http://localhost:11434/v1/chat/completions"),
-        (PROVIDER_TYPE_OPENROUTER, "https://openrouter.ai/api/v1/chat/completions"),
+        (ProviderType.OPENAI, "https://api.openai.com/v1/chat/completions"),
+        (ProviderType.GROQ, "https://api.groq.com/openai/v1/chat/completions"),
+        (ProviderType.LOCALAI, "http://localhost:8080/v1/chat/completions"),
+        (ProviderType.OLLAMA, "http://localhost:11434/v1/chat/completions"),
+        (ProviderType.OPENROUTER, "https://openrouter.ai/api/v1/chat/completions"),
     ]
     for provider_type, expected_url in test_cases:
         client = AiWebScraperClient(
@@ -144,7 +160,7 @@ def test_provider_factory_uses_custom_base_url() -> None:
         prompt="Extract",
         extraction_mode="dom",
         session=DummySession(),
-        provider_type=PROVIDER_TYPE_OPENAI_COMPATIBLE,
+        provider_type=ProviderType.OPENAI_COMPATIBLE,
         base_url=custom_url,
     )
     provider = client._get_provider()
@@ -163,7 +179,7 @@ def test_gemini_provider_extract_raises_for_empty_candidate() -> None:
         prompt="Extract text",
         extraction_mode="dom",
         session=DummySession(),
-        provider_type=PROVIDER_TYPE_GEMINI,
+        provider_type=ProviderType.GEMINI,
     )
     client._get_page_text = AsyncMock(return_value="<html>hello</html>")
     client._api_wrapper = AsyncMock(return_value={"candidates": []})
@@ -182,7 +198,7 @@ def test_api_wrapper_rate_limit_error_message() -> None:
             self.headers = {"Content-Type": "application/json"}
             self.raise_for_status = AsyncMock(
                 side_effect=aiohttp.ClientResponseError(
-                    request_info=None,
+                    request_info=_make_request_info(),
                     history=(),
                     status=429,
                     message="Too Many Requests",
@@ -253,7 +269,7 @@ def test_api_wrapper_retries_server_errors_once() -> None:
             if raise_error:
                 self.raise_for_status = AsyncMock(
                     side_effect=aiohttp.ClientResponseError(
-                        request_info=None,
+                        request_info=_make_request_info(),
                         history=(),
                         status=status,
                         message="Service Unavailable",
@@ -322,7 +338,7 @@ def test_normalize_page_text_removes_html_tags() -> None:
         "<html><head><style>.hidden{}</style></head><body><h1>Hello</h1><p>World</p></body></html>"
     )
 
-    assert normalized == "Hello World"
+    assert normalized == "# Hello\n\nWorld"
 
 
 def test_browserless_screenshot_is_saved_to_disk(tmp_path) -> None:
@@ -334,13 +350,13 @@ def test_browserless_screenshot_is_saved_to_disk(tmp_path) -> None:
         scraper_name="Test Scraper",
         url="https://example.com",
         prompt="Extract text",
-        extraction_mode="dom",
+        extraction_mode="browser_based",
         session=DummySession(),
         screenshot_dir=str(tmp_path),
         screenshot_filename="scraper-entry-id.png",
     )
 
-    client._fetch_browserless_page_text = AsyncMock(return_value="<html>hello</html>")
+    client._get_page_text = AsyncMock(return_value="<html>hello</html>")
     client._fetch_browserless_page_screenshot = AsyncMock(return_value=b"PNGDATA")
     client._provider_extract = AsyncMock(return_value="Extracted result")
 
@@ -352,35 +368,26 @@ def test_browserless_screenshot_is_saved_to_disk(tmp_path) -> None:
     assert (tmp_path / "scraper-entry-id.png").read_bytes() == b"PNGDATA"
 
 
-def test_browserless_screenshot_falls_back_on_400_bad_request() -> None:
+def test_browserless_screenshot_raises_on_400_bad_request() -> None:
+    """A 400 Bad Request from the screenshot endpoint raises an error."""
     class FakeResponse:
-        def __init__(self, status: int, content: bytes = b"") -> None:
+        def __init__(self, status: int) -> None:
             self.status = status
             self.headers = {"Content-Type": "image/png"}
-            self._content = content
             self.raise_for_status = AsyncMock(
                 side_effect=aiohttp.ClientResponseError(
-                    request_info=None,
+                    request_info=_make_request_info(),
                     history=(),
                     status=status,
                     message="Bad Request",
                 )
-                if status >= 400
-                else AsyncMock()
             )
 
         async def read(self) -> bytes:
-            return self._content
-
-    error_response = FakeResponse(status=400)
-    success_response = FakeResponse(status=200, content=b"PNGDATA")
+            return b""
 
     session = AsyncMock()
-    session.post.side_effect = [
-        error_response,
-        error_response,
-        success_response,
-    ]
+    session.post.return_value = FakeResponse(status=400)
 
     client = AiWebScraperClient(
         provider_name="Test Provider",
@@ -396,12 +403,12 @@ def test_browserless_screenshot_falls_back_on_400_bad_request() -> None:
         screenshot_filename="scraper-entry-id.png",
     )
 
-    screenshot = asyncio.run(
-        client._fetch_browserless_page_screenshot("https://example.com")
-    )
+    with pytest.raises(AiWebScraperClientCommunicationError) as exc_info:
+        asyncio.run(
+            client._fetch_browserless_page_screenshot("https://example.com")
+        )
 
-    assert screenshot == b"PNGDATA"
-    assert session.post.await_count == 3
+    assert "400 Bad Request" in str(exc_info.value)
 
 
 def test_browserless_screenshot_uses_standard_payload_first() -> None:
