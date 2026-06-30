@@ -1,6 +1,5 @@
 {
     "name": "AI Web Scraper",
     "render_readme": true,
-    "homeassistant": "2024.10.0",
-    "category": "integration"
+    "homeassistant": "2024.10.0"
 }
