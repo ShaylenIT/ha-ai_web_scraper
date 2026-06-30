@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 
 from homeassistant.const import Platform
 from homeassistant.core import callback
+from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.loader import async_get_loaded_integration
 
@@ -150,6 +151,17 @@ async def async_setup_entry(
     if entry.data.get(CONF_ENTRY_TYPE) != ENTRY_TYPE_SCRAPER:
         return False
 
+    # Validate the referenced provider entry exists before proceeding.
+    # Without this guard, _build_entry_client silently creates a broken
+    # client with empty credentials, leading to cryptic runtime failures.
+    provider_id = entry.data.get(CONF_PROVIDER_ID, "")
+    if not get_provider_entry(hass, provider_id):
+        raise ConfigEntryNotReady(
+            f"Referenced AI provider entry '{provider_id}' not found for scraper "
+            f"'{entry.title}'. Please ensure the provider is still configured, or "
+            f"delete and recreate this scraper entry."
+        )
+
     update_interval = None
     interval_seconds = entry.data.get(CONF_INTERVAL_SECONDS, 0)
     if interval_seconds and interval_seconds > 0:
@@ -157,11 +169,11 @@ async def async_setup_entry(
 
     coordinator = AIWebScraperDataUpdateCoordinator(
         hass=hass,
+        config_entry=entry,
         logger=LOGGER,
         name=entry.title,
         update_interval=update_interval,
     )
-    coordinator.config_entry = entry
 
     entry.runtime_data = AiWebScraperData(
         client=_build_entry_client(hass, entry),
@@ -202,6 +214,12 @@ async def async_unload_entry(
     """Handle removal of an entry."""
     if entry.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_PROVIDER:
         return True
+
+    # Shut down the coordinator to cancel any pending refresh timers
+    # and in-progress scrape tasks before unloading entities.
+    if (runtime_data := entry.runtime_data) is not None:
+        await runtime_data.coordinator.async_shutdown()
+
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
 

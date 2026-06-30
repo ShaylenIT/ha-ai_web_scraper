@@ -10,6 +10,48 @@ Website → Browserless renders page (optional) → AI extracts relevant data �
 
 Each scraper is configured with a **target URL** and a **prompt** that tells the AI what to extract. The AI returns just the information you asked for — no full page content stored in Home Assistant.
 
+## Quickstart
+
+Get up and running in 3 minutes:
+
+```
+1. Install  →  2. Add a Provider  →  3. Add a Scraper
+```
+
+### 1. Install via HACS
+
+1. Go to **HACS** → **Integrations** → search for **"AI Web Scraper"**
+2. Click **Download this repository with HACS**
+3. **Restart Home Assistant**
+
+### 2. Add an AI Provider
+
+1. Go to **Settings** → **Devices & Services** → **Add Integration** → select **AI Web Scraper**
+2. Choose **Add AI Provider**
+3. Select your provider brand (e.g. **OpenAI**)
+4. Fill in:
+   - **Provider name** — any label (e.g. `My OpenAI`)
+   - **API key** — your API key
+   - **Model name** — e.g. `gpt-4o-mini`, `deepseek-chat`, `gemini-2.0-flash`
+5. Click **Submit**
+
+### 3. Add a Scraper Entry
+
+1. Go to **Settings** → **Devices & Services** → **Add Integration** → **AI Web Scraper** again
+2. Choose **Add Scraper Entry**
+3. Fill in:
+   - **Scraper name** — any label (e.g. `Product Price`)
+   - **URL** — the page to scrape
+   - **Prompt** — what to extract (e.g. *"What is the current price?"*)
+   - **Provider** — select the provider you just created
+4. Click **Submit**
+
+✅ **Done!** A new device appears with your scraped data sensor. Press the **Refresh Scraper** button to trigger an immediate scrape.
+
+> For a visual walkthrough, see the [screenshots](#screenshots) section.
+
+---
+
 ## Supported AI Providers
 
 | Provider | Default Endpoint | Requires API Key |
@@ -33,7 +75,7 @@ For self-hosted providers (Ollama, LocalAI), simply change the host in the base 
 - **An AI Provider**: API key for your chosen provider (not required for LocalAI or Ollama)
 - **Browserless** (optional, but recommended): The [Browserless add-on](https://github.com/home-assistant/addons/tree/master/browserless) for rendered JavaScript pages. Without it, only raw HTML is fetched.
 
-## Setup
+## Detailed Setup
 
 ### 1. Install via HACS
 
@@ -113,6 +155,66 @@ Each scraper entry creates a device with these entities:
 ## Provider cool-down
 
 When multiple scrapers share the same AI provider, a cool-down delay (default 30s) is enforced between consecutive AI calls. This prevents hitting API rate limits. The cool-down resets per-provider whenever any scraper using that provider starts scraping.
+
+## Screenshots
+
+> Screenshots live in `config/ai_web_scraper/screenshots/`. Replace these placeholders with actual PNG captures of your HA instance.
+
+### Add AI Provider — Brand Selection
+
+```ascii
+┌──────────────────────────────────────┐
+│  Select AI Provider Brand            │
+│                                      │
+│  ○ OpenAI                            │
+│  ○ DeepSeek                          │
+│  ○ Groq                              │
+│  ○ LocalAI                           │
+│  ○ Ollama                            │
+│  ○ Open WebUI                        │
+│  ○ OpenRouter                        │
+│  ○ Custom OpenAI Compatible          │
+│  ○ Google Gemini                     │
+│                                      │
+│        [Back]    [Next]              │
+└──────────────────────────────────────┘
+```
+
+### Add AI Provider — Credentials
+
+```ascii
+┌──────────────────────────────────────┐
+│  Configure OpenAI Provider           │
+│                                      │
+│  Provider name   [ My OpenAI      ]  │
+│  API key         [ ************   ]  │
+│  Model name      [ gpt-4o-mini    ]  │
+│  Base URL        [ https://api.op…]  │
+│  Browserless URL [               ]  │
+│  Cool-down (s)   [ 30     ]         │
+│  Timeout (s)     [ 60     ]         │
+│                                      │
+│        [Back]    [Submit]            │
+└──────────────────────────────────────┘
+```
+
+### Add Scraper Entry
+
+```ascii
+┌──────────────────────────────────────┐
+│  Configure Scraper Entry             │
+│                                      │
+│  Scraper name    [ Product Price  ]  │
+│  URL             [ https://exam…  ]  │
+│  Prompt          [ What is the    ]  │
+│                  [ current price? ]  │
+│  Provider        [ My OpenAI ▼    ]  │
+│  Extraction mode [ Text/HTML ▼    ]  │
+│  Interval (min)  [ 60            ]  │
+│                                      │
+│        [Back]    [Submit]            │
+└──────────────────────────────────────┘
+```
 
 ## Notes
 

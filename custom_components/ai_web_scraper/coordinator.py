@@ -7,6 +7,7 @@ from logging import Logger
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
@@ -64,11 +65,12 @@ class AIWebScraperDataUpdateCoordinator(DataUpdateCoordinator):
         old timer to fire first.
         """
         if self._unsub_refresh is not None:
-            self._unsub_refresh.cancel()
+            self._unsub_refresh()
             self._unsub_refresh = None
-        self._unsub_refresh = self.hass.loop.call_later(
+        self._unsub_refresh = async_call_later(
+            self.hass,
             self.update_interval.total_seconds(),
-            self._async_refresh,
+            lambda _: self._async_refresh(),
         )
 
     def _set_status_callback(self, status: str) -> None:
