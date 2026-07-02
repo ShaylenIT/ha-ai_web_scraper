@@ -75,6 +75,9 @@ class AiWebScraperSensor(AiWebScraperEntity, SensorEntity):
     @property
     def native_value(self) -> str | None:
         """Return the native value of the sensor."""
+        if self.coordinator.data is None:
+            return None
+
         if self.entity_description.key == "ai_web_scraper_status":
             return self.coordinator.data.get("attributes", {}).get(
                 SCRAPER_STATUS_ATTR, "unknown"
@@ -95,4 +98,6 @@ class AiWebScraperSensor(AiWebScraperEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
         """Return the state attributes of the sensor."""
+        if self.coordinator.data is None:
+            return None
         return self.coordinator.data.get("attributes")

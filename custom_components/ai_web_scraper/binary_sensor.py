@@ -55,13 +55,17 @@ class AiWebScraperBinarySensor(AiWebScraperEntity, BinarySensorEntity):
         super().__init__(coordinator, entity_description)
 
     @property
-    def is_on(self) -> bool:
+    def is_on(self) -> bool | None:
         """Return true if the binary sensor is on."""
+        if self.coordinator.data is None:
+            return None
         return self.coordinator.data.get("last_attempt_status") == "failure"
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
         """Return the state attributes of the binary sensor."""
+        if self.coordinator.data is None:
+            return None
         return {
             "error_message": self.coordinator.data.get("error_message", ""),
             "last_attempt_status": self.coordinator.data.get(
