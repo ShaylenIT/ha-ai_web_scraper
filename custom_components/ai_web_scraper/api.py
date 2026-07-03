@@ -8,7 +8,7 @@ import socket
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
-from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
+from urllib.parse import urlparse, urlunparse
 
 import aiofiles
 import aiohttp
@@ -542,9 +542,6 @@ class AiWebScraperClient:
         """
         browserless_url = self._normalize_browserless_url(self._browserless_url)
         parsed_url = urlparse(browserless_url)
-        parsed_url = parsed_url._replace(
-            query=urlencode(parse_qs(parsed_url.query), doseq=True)
-        )
 
         payload: dict[str, Any] = {
             "url": url,
@@ -652,10 +649,7 @@ class AiWebScraperClient:
         """
         browserless_url = self._normalize_browserless_url(self._browserless_url)
         parsed_url = urlparse(browserless_url)
-        parsed_url = parsed_url._replace(
-            path="/screenshot",
-            query=urlencode(parse_qs(parsed_url.query), doseq=True),
-        )
+        parsed_url = parsed_url._replace(path="/screenshot")
 
         payload: dict[str, Any] = {
             "url": url,
@@ -852,7 +846,14 @@ class AiWebScraperClient:
         return text.strip()
 
     def _normalize_browserless_url(self, browserless_url: str) -> str:
-        """Normalize the browserless addon URL for fetching rendered content."""
+        """Normalize the browserless addon URL for fetching rendered content.
+
+        Query parameters are stripped because Browserless configuration
+        (blockConsentModals, etc.) is passed via the JSON payload body,
+        not URL query strings. Legacy URLs with ?blockConsentModals=true
+        in particular cause 400 Bad Request on self-hosted instances since
+        that is a cloud/enterprise-only feature.
+        """
         parsed_url = urlparse(browserless_url)
         if parsed_url.scheme in ("ws", "wss"):
             msg = (
@@ -866,7 +867,7 @@ class AiWebScraperClient:
             path = path.rstrip("/")
         if path in (None, "", "/"):
             path = "/content"
-        parsed_url = parsed_url._replace(path=path)
+        parsed_url = parsed_url._replace(path=path, query="")
         return urlunparse(parsed_url)
 
     async def _api_wrapper(
