@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from homeassistant.const import Platform
-from homeassistant.core import callback
+from homeassistant.core import HomeAssistantState, callback
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.loader import async_get_loaded_integration
@@ -193,16 +193,18 @@ async def async_setup_entry(
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    # Don't fire a first refresh during setup — schedule it for 60
-    # seconds after load so HA startup completes without waiting for
-    # scrapes. After the first refresh, the normal update_interval
-    # takes over for subsequent auto-refreshes.
+    # Fire the first refresh immediately if HA is already running (live
+    # config flow addition), so entities don't sit "unknown" for a minute.
+    # On system startup, delay 60 seconds so HA can finish booting.
     @callback
-    def _delayed_first_refresh():
+    def _first_refresh():
         hass.async_create_task(coordinator._async_refresh())
 
-    timer = hass.loop.call_later(60, _delayed_first_refresh)
-    entry.async_on_unload(timer.cancel)
+    if hass.state is HomeAssistantState.RUNNING:
+        _first_refresh()
+    else:
+        timer = hass.loop.call_later(60, _first_refresh)
+        entry.async_on_unload(timer.cancel)
 
     return True
 
