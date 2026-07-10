@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistantState, callback
+from homeassistant.core import CoreState, callback
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.loader import async_get_loaded_integration
@@ -200,7 +200,7 @@ async def async_setup_entry(
     def _first_refresh():
         hass.async_create_task(coordinator._async_refresh())
 
-    if hass.state is HomeAssistantState.RUNNING:
+    if hass.state is CoreState.running:
         _first_refresh()
     else:
         timer = hass.loop.call_later(60, _first_refresh)
