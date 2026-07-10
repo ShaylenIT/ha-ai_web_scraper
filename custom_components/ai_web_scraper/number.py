@@ -99,7 +99,7 @@ class AiWebScraperNumber(AiWebScraperEntity, NumberEntity):
         )
         self.async_write_ha_state()
 
-        # Reschedule the auto-refresh timer so the new interval takes
-        # effect immediately instead of waiting for the old timer.
+        # Schedule the next refresh using the coordinator's native
+        # scheduling so the new interval takes effect immediately.
         if seconds > 0:
-            self.coordinator._reschedule_refresh_timer()
+            self.coordinator._schedule_refresh()

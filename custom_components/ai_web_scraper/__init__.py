@@ -247,8 +247,8 @@ async def async_on_scraper_config_update(
     Handle scraper config updates without full reload.
 
     Rebuilds the API client in-place so entities stay available.
-    The number entity (scrape interval) already updates the coordinator
-    interval directly, so no extra work is needed for that case.
+    Also syncs the coordinator's update_interval and reschedules the
+    refresh timer from any code path (number entity, options flow, etc.).
     """
     runtime_data = entry.runtime_data
     if runtime_data is None:
@@ -263,12 +263,14 @@ async def async_on_scraper_config_update(
         runtime_data.coordinator._set_status_callback
     )
 
-    # If the interval changed, the number entity already set it on the
-    # coordinator. If it hasn't (e.g. options flow change), sync it here.
+    # Sync the coordinator's interval and reschedule the refresh timer
+    # so the change takes effect regardless of which code path triggered
+    # the update (number entity, options flow, etc.).
     interval_seconds = entry.data.get(CONF_INTERVAL_SECONDS, 0)
     if interval_seconds and interval_seconds > 0:
         runtime_data.coordinator.update_interval = timedelta(
             seconds=int(interval_seconds)
         )
+        runtime_data.coordinator._schedule_refresh()
     else:
         runtime_data.coordinator.update_interval = None

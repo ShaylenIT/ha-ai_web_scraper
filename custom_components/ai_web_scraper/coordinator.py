@@ -7,7 +7,6 @@ from logging import Logger
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.exceptions import ConfigEntryAuthFailed
-from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
@@ -56,22 +55,6 @@ class AIWebScraperDataUpdateCoordinator(DataUpdateCoordinator):
     def current_status(self) -> str:
         """Return the live scraper status phase."""
         return self._current_status
-
-    def _reschedule_refresh_timer(self) -> None:
-        """Cancel the pending auto-refresh timer and schedule a new one.
-
-        Called after the user changes the scrape interval so the new
-        interval takes effect immediately instead of waiting for the
-        old timer to fire first.
-        """
-        if self._unsub_refresh is not None:
-            self._unsub_refresh()
-            self._unsub_refresh = None
-        self._unsub_refresh = async_call_later(
-            self.hass,
-            self.update_interval.total_seconds(),
-            lambda _: self._async_refresh(),
-        )
 
     def _set_status_callback(self, status: str) -> None:
         """Callback invoked by the API client when the scraper phase changes.
