@@ -498,10 +498,10 @@ class AiWebScraperClient:
         "document.querySelectorAll('*').forEach(function(el){"
         "if(SAFE.has(el.tagName))return;"
         "var s=window.getComputedStyle(el);"
+        "if(s.position!=='fixed'&&s.position!=='sticky')return;"
         "var z=parseInt(s.zIndex,10);"
-        "if((s.position==='fixed'||s.position==='sticky')&&!isNaN(z)&&z>99){"
-        "el.remove();"
-        "}"
+        "if(!isNaN(z)&&z>99){el.remove();return;}"
+        "if(s.zIndex==='auto'){el.remove();}"
         "});"
         "})();"
     )
